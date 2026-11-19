@@ -70,13 +70,13 @@ public class Screen {
     }
     private String edit(Session s) {
         var text = new StringBuilder(messages.text(s.language, "edit"));
-        List<String> fields = router.fields(s.draft.sector);
+        List<String> fields = router.fields(s.draft);
         for (int i = 0; i < fields.size(); i++) text.append("\n").append(i + 1).append(". ").append(RegistrationSchema.label(s.draft.sector, fields.get(i), s.language));
         return text.toString();
     }
     private String review(Session s) {
         var text = new StringBuilder(messages.text(s.language, "review"));
-        for (String field : router.fields(s.draft.sector)) {
+        for (String field : router.fields(s.draft)) {
             text.append("\n").append(RegistrationSchema.label(s.draft.sector, field, s.language)).append(": ");
             var group = RegistrationSchema.group(s.draft.sector, field);
             if (group == null) text.append(RegistrationSchema.display(s.draft.sector, field, s.draft.answers.get(field), s.language));

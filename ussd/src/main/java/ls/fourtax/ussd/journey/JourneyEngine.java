@@ -26,6 +26,7 @@ public class JourneyEngine {
         if (!authorized(s)) return;
         if (s.draft != null && s.draft.sector != null && !RegistrationSchema.sectors().contains(s.draft.sector)
                 && !s.node.equals("RESUME")) { router.go(s, "RESUME"); s.error = "error.oldDraft"; return; }
+        if (skipInactiveDescription(s)) return;
         if (input.equals("0")) {
             if (s.draft != null && s.draft.mayHaveSubmitted) { router.go(s, "RETRY"); return; }
             router.back(s); return;
@@ -86,7 +87,22 @@ public class JourneyEngine {
             s.clearAuthentication(); s.resumeAfterLogin = s.draft != null; router.go(s, "LOGIN_PIN"); s.error = "error.expired"; return false;
         }
     }
-    public void enforceAccess(Session s) { if (!s.node.equals("END")) authorized(s); }
+    public void enforceAccess(Session s) {
+        if (!s.node.equals("END") && authorized(s)) skipInactiveDescription(s);
+    }
+    private boolean skipInactiveDescription(Session s) {
+        if (!s.node.startsWith("FIELD:") && !s.node.startsWith("COLLECTION:")
+                && !Set.of("REVIEW", "EDIT").contains(s.node)) return false;
+        if (s.draft == null || s.draft.sector == null || !RegistrationSchema.sectors().contains(s.draft.sector)
+                || RegistrationSchema.requiresOtherDescription(s.draft) || s.draft.mayHaveSubmitted) return false;
+        boolean changed = s.draft.answers.containsKey("other_description")
+                && !"".equals(s.draft.answers.get("other_description"));
+        if (changed) s.draft.answers.put("other_description", "");
+        boolean skipped = s.node.equals("FIELD:other_description");
+        if (skipped) router.next(s, "other_description");
+        if (changed || skipped) save(s);
+        return skipped;
+    }
 
     private void begin(Session s) {
         Draft draft = store.draft(crypto.digest(s.mobile));
@@ -136,6 +152,8 @@ public class JourneyEngine {
     }
     private void field(Session s, String field, String input) {
         String value = input.strip().replaceAll("\\s+", " ");
+        if (field.equals("other_description") && RegistrationSchema.requiresOtherDescription(s.draft)
+                && (value.isBlank() || value.equals("-"))) { s.error = "error.otherDescriptionRequired"; return; }
         try {
             if (value.chars().anyMatch(Character::isISOControl)) throw new IllegalArgumentException();
             value = RegistrationSchema.parse(s.draft.sector, field, value);
@@ -165,17 +183,22 @@ public class JourneyEngine {
             if (s.draft.mayHaveSubmitted) s.error = "error.retryFirst"; else router.go(s, "EDIT"); return;
         }
         if (!input.equals("1")) { invalid(s); return; }
-        for (String field : router.fields(s.draft.sector)) {
-            if (!s.draft.answers.containsKey(field)) { router.go(s, router.fieldNode(s.draft, field)); return; }
+        // An ambiguous submission must keep its original payload until the API confirms its result.
+        if (s.draft.mayHaveSubmitted) { submit(s); return; }
+        for (String field : router.fields(s.draft)) {
+            if (!s.draft.answers.containsKey(field) || (field.equals("other_description") && s.draft.answers.get(field).isBlank())) {
+                if (field.equals("other_description")) s.editing = true;
+                router.go(s, router.fieldNode(s.draft, field)); save(s); return;
+            }
         }
         if (s.token == null) router.go(s, "PIN_NEW"); else submit(s);
     }
     private void edit(Session s, String input) {
         try {
             int index = Integer.parseInt(input) - 1;
-            List<String> fields = router.fields(s.draft.sector);
+            List<String> fields = router.fields(s.draft);
             if (index < 0 || index >= fields.size()) throw new IllegalArgumentException();
-            s.editing = true; router.go(s, router.fieldNode(s.draft, fields.get(index)));
+            s.editing = true; router.go(s, router.fieldNode(s.draft, fields.get(index))); save(s);
         } catch (IllegalArgumentException error) { invalid(s); }
     }
     private void newPin(Session s, String pin) {
@@ -252,7 +275,7 @@ public class JourneyEngine {
         var details = new LinkedHashMap<String, Object>();
         for (String field : router.fields(s.draft.sector)) {
             if (!Set.of("fullNames", "idNumber").contains(field) && RegistrationSchema.group(s.draft.sector, field) == null)
-                details.put(field, RegistrationSchema.value(s.draft.sector, field, a.get(field)));
+                details.put(field, RegistrationSchema.value(s.draft.sector, field, field.equals("other_description") ? a.getOrDefault(field, "") : a.get(field)));
         }
         return new BusinessRegistration(s.draft.sector, new Owner(a.get("idNumber"), a.get("fullNames")), details,
                 s.draft.collections.getOrDefault("employees", List.of()),

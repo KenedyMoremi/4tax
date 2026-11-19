@@ -30,6 +30,18 @@ public final class RegistrationSchema {
         for (var group : sector(name).get("collections")) result.add(group.get("name").asText());
         return result;
     }
+    public static boolean requiresOtherDescription(State.Draft draft) {
+        String category = switch (draft.sector) {
+            case "ecommerce" -> "service_type";
+            case "retail" -> "goods_type";
+            case "agriculture" -> "activity";
+            default -> null;
+        };
+        return category != null && "other".equals(draft.answers.get(category));
+    }
+    public static boolean applies(State.Draft draft, String field) {
+        return !field.equals("other_description") || requiresOtherDescription(draft);
+    }
     public static JsonNode group(String sector, String name) {
         for (var group : sector(sector).get("collections")) if (group.get("name").asText().equals(name)) return group;
         return null;
@@ -50,6 +62,7 @@ public final class RegistrationSchema {
     public static String prompt(String sector, String name, String language) {
         var f = field(sector, name);
         var messages = new Messages();
+        if (name.equals("other_description")) return messages.text(language, "registration.describeOther");
         var result = new StringBuilder(label(sector, name, language));
         String type = f.get("type").asText();
         if (type.equals("boolean")) return result + "\n1. " + messages.text(language, "registration.yes") + "\n2. " + messages.text(language, "registration.no");

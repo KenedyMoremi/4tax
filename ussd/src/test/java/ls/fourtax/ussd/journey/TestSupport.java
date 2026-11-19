@@ -113,7 +113,7 @@ public final class TestSupport {
                         case "opens_at" -> "08:00";
                         case "closes_at" -> "17:00";
                         case "overnight" -> "2";
-                        case "other_description" -> "-";
+                        case "other_description" -> "Synthetic other business";
                         default -> "1";
                     };
                     input(value);
