@@ -155,3 +155,7 @@ Groq (default), optional OpenAI, and Twilio Sandbox integration is implemented, 
 ## Sector-specific web registration
 
 New owners sign up with a username and password, choose one of five sectors, then enter their business details. **Business profile** also lets existing owners add and edit their information. Registration lives in `business_profiles/`; saving operational details does not post financial transactions. See [sector fields, validation and migration notes](docs/SECTOR_ONBOARDING.md). The same five-sector fields now power USSD menus and authenticated registration endpoints; see [USSD registration](docs/USSD_REGISTRATION.md).
+
+## Service-sector bookings
+
+The separate `bookings/` app provides service and staff catalogs, appointment availability, owner scheduling and shareable customer booking pages. Working hours default to **08:00–17:00, Monday–Friday**, with editable working days. Slots are protected against double booking; online requests await owner confirmation, and customers receive private confirmation/cancellation links. See [setup, workflow and deployment notes](docs/BOOKINGS.md).

@@ -11,5 +11,6 @@ urlpatterns = [
     path('accounts/password/', auth.PasswordChangeView.as_view(template_name='registration/password.html', success_url='/'), name='password_change'),
     path('', include('whatsapp.urls')),
     path('', include('business_profiles.urls')),
+    path('', include('bookings.urls')),
     path('', include('bookkeeping.urls')),
 ]
