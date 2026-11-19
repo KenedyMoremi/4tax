@@ -244,9 +244,9 @@ def reports(request):
 
 def report_csv(report, dates):
     response = HttpResponse(content_type='text/csv')
-    response['Content-Disposition'] = 'attachment; filename="khumo-financial-report.csv"'
+    response['Content-Disposition'] = 'attachment; filename="4tax-financial-report.csv"'
     writer = csv.writer(response)
-    writer.writerow(['Khumo Books financial report (LSL)', dates['start'], dates['end']])
+    writer.writerow(['4Tax financial report (LSL)', dates['start'], dates['end']])
     writer.writerow(['Section','Code','Account','Debit','Credit','Balance'])
     for title, rows in [('Period activity',report['period_rows']),('Closing balances',report['balance_rows'])]:
         for row in rows:

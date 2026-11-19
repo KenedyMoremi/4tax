@@ -1,4 +1,4 @@
-# Deploy Khumo Books through GitHub to Vercel
+# Deploy 4Tax through GitHub to Vercel
 
 Use a personal GitHub repository for a Hobby deployment. Vercel's [Hobby rules](https://vercel.com/docs/limits/fair-use-guidelines) restrict that plan to personal/non-commercial use. A learning or personal demo may qualify; live commercial use needs a suitable plan. This configuration does not select, upgrade, or purchase any plan.
 

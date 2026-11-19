@@ -54,7 +54,7 @@ def webhook(request):
         # Lock ordering is business -> link throughout callbacks, worker and web UI.
         candidate = WhatsAppLink.objects.filter(phone=data['From'][9:], active=True, owner__is_active=True).first()
         if not candidate:
-            return twiml('Sign in to Khumo Books and open WhatsApp to link your number first.')
+            return twiml('Sign in to 4Tax and open WhatsApp to link your number first.')
         business = Business.objects.select_for_update().get(pk=candidate.business_id)
         link = WhatsAppLink.objects.select_for_update().get(pk=candidate.pk)
         if not link.active or link.phone != data['From'][9:] or business.owner_id != link.owner_id:
