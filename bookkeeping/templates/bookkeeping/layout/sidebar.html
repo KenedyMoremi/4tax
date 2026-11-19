@@ -7,6 +7,7 @@
 <a class="nav-link {% if active == 'bill' %}active{% endif %}" href="{% url 'documents' 'bill' %}"><svg class="icon"><use href="#i-wallet"/></svg>Purchase bills</a>
 <a class="nav-link {% if active == 'expenses' %}active{% endif %}" href="{% url 'expenses' %}"><svg class="icon"><use href="#i-bank"/></svg>Expenses</a>
 <a class="nav-link {% if active == 'contacts' %}active{% endif %}" href="{% url 'contacts' %}"><svg class="icon"><use href="#i-users"/></svg>Customers & suppliers</a>
+{% if workspace.is_service_business %}<a class="nav-link {% if active == 'bookings' %}active{% endif %}" href="{% url 'bookings:dashboard' %}"><svg class="icon"><use href="#i-users"/></svg>Bookings</a>{% endif %}
 <p class="eyebrow mb-3 px-3 pt-6">Your books</p>
 <a class="nav-link {% if active == 'accounts' %}active{% endif %}" href="{% url 'accounts' %}"><svg class="icon"><use href="#i-bank"/></svg>Chart of accounts</a>
 <a class="nav-link {% if active == 'ledger' %}active{% endif %}" href="{% url 'ledger' %}"><svg class="icon"><use href="#i-book"/></svg>General ledger</a>
