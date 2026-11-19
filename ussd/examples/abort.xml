@@ -1,0 +1,7 @@
+<ussdAppRequest>
+  <msisdn>26658123456</msisdn>
+  <sessionId>demo-1</sessionId>
+  <reason>TIMEOUT</reason>
+  <network>VOD</network>
+  <type>abort</type>
+</ussdAppRequest>

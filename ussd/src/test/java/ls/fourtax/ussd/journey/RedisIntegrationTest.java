@@ -1,0 +1,52 @@
+package ls.fourtax.ussd.journey;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static ls.fourtax.ussd.journey.TestSupport.*;
+import java.time.Duration;
+import java.util.*;
+import java.util.concurrent.*;
+import ls.fourtax.ussd.callback.Callback;
+import ls.fourtax.ussd.session.RedisSessionStore;
+import org.junit.jupiter.api.*;
+import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.junit.jupiter.*;
+import tools.jackson.databind.json.JsonMapper;
+
+@Testcontainers
+class RedisIntegrationTest {
+    @Container static final GenericContainer<?> REDIS = new GenericContainer<>("redis:8-alpine").withExposedPorts(6379);
+    LettuceConnectionFactory connection;
+    StringRedisTemplate redis;
+    Driver d;
+    @BeforeEach void setup() {
+        connection = new LettuceConnectionFactory(REDIS.getHost(), REDIS.getMappedPort(6379)); connection.afterPropertiesSet(); connection.start();
+        redis = new StringRedisTemplate(connection); redis.getConnectionFactory().getConnection().serverCommands().flushDb();
+        d = new Driver(new RedisSessionStore(redis, JsonMapper.builder().build(), settings()), new FakeBackend());
+    }
+    @AfterEach void close() { connection.destroy(); }
+    @Test void fullJourneyUsesRedisWithoutPersistingRawPinAndDraftHasTtl() {
+        d.transportToReview("1"); d.steps("1", "087431");
+        for (String key : redis.keys("*")) {
+            if (!key.startsWith("lock:")) assertFalse(Objects.requireNonNull(redis.opsForValue().get(key)).contains("087431"));
+        }
+        Long ttl = redis.getExpire("draft:" + d.crypto.digest(d.mobile)); assertNotNull(ttl); assertTrue(ttl > 880 && ttl <= 900);
+        d.input("087431"); assertTrue(d.last.end()); assertTrue(redis.keys("draft:*").isEmpty()); assertTrue(redis.keys("session:*").isEmpty());
+    }
+    @Test void concurrentDuplicateCallbacksAdvanceOnlyOnce() throws Exception {
+        d.start();
+        try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            Callable<Callback.Reply> work = () -> d.coordinator.handle(new Callback("test", "TEST", d.sessionId, d.mobile,
+                    Callback.Event.INPUT, "1", "*123#", "duplicate"));
+            var results = executor.invokeAll(List.of(work, work));
+            assertEquals(results.getFirst().get(), results.getLast().get()); assertEquals("MAIN", d.state().node);
+        }
+        assertTrue(redis.keys("lock:*").isEmpty());
+    }
+    @Test void redisDraftExpiryCannotBeExtendedByAnInvalidInput() throws Exception {
+        d.transportToReview("1");
+        redis.expire("draft:" + d.crypto.digest(d.mobile), Duration.ofMillis(10)); Thread.sleep(40);
+        d.input("invalid"); assertTrue(d.last.end()); assertNull(d.store.draft(d.crypto.digest(d.mobile)));
+    }
+}

@@ -1,0 +1,148 @@
+openapi: 3.1.0
+info:
+  title: 4Tax Authentication API
+  version: 0.1.0
+  description: Auth owns clients, PIN hashes and owner identities. Client provisioning is public during the prototype.
+servers:
+  - url: http://localhost:9000
+paths:
+  /api/v1/clients:
+    post:
+      operationId: provisionClient
+      summary: Publicly generate credentials for a consuming application
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [applicationName, scopes]
+              properties:
+                applicationName: {type: string, minLength: 1, maxLength: 100}
+                scopes:
+                  type: array
+                  minItems: 1
+                  uniqueItems: true
+                  items: {type: string, enum: ['owners:create', 'owners:login']}
+      responses:
+        '201':
+          description: Client issued; secret is returned only on creation
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [clientId, clientSecret, tokenEndpoint, scopes]
+                properties:
+                  clientId: {type: string}
+                  clientSecret: {type: string}
+                  tokenEndpoint: {type: string, format: uri}
+                  scopes: {type: array, items: {type: string}}
+        '400': {$ref: '#/components/responses/Error'}
+  /oauth2/token:
+    post:
+      operationId: applicationToken
+      security: [{clientBasic: []}]
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [grant_type]
+              properties:
+                grant_type: {const: client_credentials}
+                scope: {type: string, example: 'owners:create owners:login'}
+      responses:
+        '200':
+          description: Standard OAuth bearer token response, five-minute application JWT
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [access_token, token_type, expires_in]
+                properties:
+                  access_token: {type: string}
+                  token_type: {const: Bearer}
+                  expires_in: {type: integer, const: 300}
+                  scope: {type: string}
+        '400': {description: OAuth invalid request or invalid scope}
+        '401': {description: OAuth invalid client}
+  /api/v1/auth/owners:
+    post:
+      operationId: createOwner
+      security: [{applicationJwt: []}]
+      description: Requires owners:create. Same operation and PIN replay returns the same owner; never replaces an existing PIN.
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: {type: string, pattern: '^[A-Za-z0-9._:-]{1,128}$'}
+      requestBody: {$ref: '#/components/requestBodies/Pin'}
+      responses:
+        '201': {$ref: '#/components/responses/OwnerToken'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {description: Invalid application JWT}
+        '403': {description: 'Missing owners:create scope'}
+        '409': {description: OWNER_EXISTS or IDEMPOTENCY_CONFLICT}
+  /api/v1/auth/pin/login:
+    post:
+      operationId: loginOwner
+      security: [{applicationJwt: []}]
+      description: Requires owners:login. Caller identity comes from the trusted gateway; the PIN is a six-character string.
+      requestBody: {$ref: '#/components/requestBodies/Pin'}
+      responses:
+        '200': {$ref: '#/components/responses/OwnerToken'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {description: Invalid application JWT or INVALID_CREDENTIALS}
+        '403': {description: 'Missing owners:login scope'}
+        '423': {description: PIN_LOCKED for 15 minutes after five failed attempts}
+  /.well-known/oauth-authorization-server:
+    get:
+      operationId: authorizationMetadata
+      responses:
+        '200': {description: OAuth authorization server metadata}
+  /oauth2/jwks:
+    get:
+      operationId: signingKeys
+      responses:
+        '200': {description: Public signing JWK set}
+components:
+  securitySchemes:
+    clientBasic: {type: http, scheme: basic}
+    applicationJwt: {type: http, scheme: bearer, bearerFormat: JWT}
+  requestBodies:
+    Pin:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [mobileNumber, pin]
+            properties:
+              mobileNumber: {type: string, example: '+26658123456'}
+              pin: {type: string, pattern: '^[0-9]{6}$', writeOnly: true}
+  responses:
+    OwnerToken:
+      description: Signed owner JWT, audience registration-api, scope businesses:create; Cache-Control no-store
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [ownerId, accessToken, tokenType, expiresIn]
+            properties:
+              ownerId: {type: string, format: uuid}
+              accessToken: {type: string}
+              tokenType: {const: Bearer}
+              expiresIn: {type: integer, const: 900}
+    Error:
+      description: Structured error
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code, message, fields]
+            properties:
+              code: {type: string}
+              message: {type: string}
+              fields: {type: object, additionalProperties: {type: string}}

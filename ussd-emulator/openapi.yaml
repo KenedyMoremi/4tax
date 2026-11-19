@@ -1,0 +1,127 @@
+openapi: 3.1.0
+info:
+  title: 4Tax USSD Emulator API
+  version: 0.1.0
+  description: Local development tool. Builds synthetic MNO XML requests and relays them to a user-supplied callback.
+servers:
+  - url: http://localhost:8090
+paths:
+  /api/emulator/config:
+    get:
+      operationId: emulatorDefaults
+      responses:
+        '200':
+          description: Non-secret defaults; no gateway credential is stored by the emulator
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  callbackUrl: {type: string, format: uri}
+                  serviceCode: {type: string}
+                  network: {const: VOD}
+                  mcc: {const: '651'}
+                  mnc: {const: '01'}
+                  prefix: {const: '58'}
+  /api/emulator/identities:
+    post:
+      operationId: generateSubscribers
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [count, prefix, mnc]
+              properties:
+                count: {type: integer, minimum: 1, maximum: 50}
+                prefix: {type: string, pattern: '^5[0-9]$', default: '58'}
+                mnc: {type: string, enum: ['01', '10'], default: '01'}
+      responses:
+        '200':
+          description: Synthetic identities, unique within the generated batch
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {$ref: '#/components/schemas/Subscriber'}
+        '400': {$ref: '#/components/responses/Invalid'}
+  /api/emulator/exchanges:
+    post:
+      operationId: sendGatewayExchange
+      description: |
+        Sends one Grapevine XML event. A stable subscriber/session identifies a call. Use a new requestId
+        for each normal event, or repeat the complete request to simulate an MNO retry. Upstream HTTP
+        and connection failures are returned as inspected exchanges with errorCode, rather than API errors.
+        IMSI, MCC, MNC, timestamp and optional requestId are explicit metadata extensions.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [callbackUrl, subscriber, sessionId, serviceCode, event, input, numberFormat, includeRequestId, timestamp, timeoutSeconds]
+              properties:
+                callbackUrl: {type: string, format: uri, maxLength: 4096}
+                gatewayHeader: {type: string, default: X-Gateway-Key}
+                gatewayKey: {type: string, writeOnly: true, maxLength: 4096}
+                subscriber: {$ref: '#/components/schemas/Subscriber'}
+                sessionId: {type: string, pattern: '^[A-Za-z0-9._:-]{1,128}$'}
+                requestId: {type: string, description: Required when includeRequestId is true}
+                serviceCode: {type: string, example: '*123#'}
+                event: {enum: [START, INPUT, ABORT, TIMEOUT]}
+                input: {type: string, maxLength: 256}
+                numberFormat: {enum: [INTERNATIONAL, E164, LOCAL], description: Digits with country code / plus and country code / national number}
+                includeRequestId: {type: boolean, default: true}
+                timestamp: {type: string, format: date-time}
+                timeoutSeconds: {type: integer, minimum: 1, maximum: 30, default: 8}
+      responses:
+        '200':
+          description: Inspected callback exchange; Cache-Control no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  callbackUrl: {type: string}
+                  effectiveUrl: {type: string, description: Actual destination after optional Docker localhost mapping}
+                  sessionId: {type: string}
+                  requestId: {type: [string, 'null']}
+                  event: {enum: [START, INPUT, ABORT, TIMEOUT]}
+                  timestamp: {type: string, format: date-time}
+                  requestXml: {type: string}
+                  responseXml: {type: string}
+                  httpStatus: {type: integer, description: Zero when no complete upstream response was received}
+                  durationMs: {type: integer}
+                  prompt: {type: [string, 'null']}
+                  state: {type: [string, 'null'], enum: [NextState, End, null]}
+                  responseType: {type: [string, 'null']}
+                  responseHeaders: {type: object, additionalProperties: {type: string}}
+                  errorCode:
+                    type: [string, 'null']
+                    enum: [HTTP_ERROR, INVALID_RESPONSE, CALLBACK_TIMEOUT, CONNECTION_ERROR, RESPONSE_TOO_LARGE, INTERRUPTED, null]
+                  errorMessage: {type: [string, 'null']}
+        '400': {$ref: '#/components/responses/Invalid'}
+components:
+  schemas:
+    Subscriber:
+      type: object
+      required: [mobileNumber, imsi, network, mcc, mnc]
+      properties:
+        id: {type: string, format: uuid}
+        mobileNumber: {type: string, example: '+26658123456'}
+        imsi: {type: string, pattern: '^651(?:01|10)[0-9]{10}$'}
+        network: {const: VOD}
+        mcc: {const: '651'}
+        mnc: {enum: ['01', '10']}
+  responses:
+    Invalid:
+      description: Invalid emulator configuration or request, before contacting the callback
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code, message]
+            properties:
+              code: {const: INVALID_REQUEST}
+              message: {type: string}

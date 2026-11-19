@@ -1,0 +1,29 @@
+server:
+  port: ${PORT:9000}
+  error:
+    include-message: never
+spring:
+  application:
+    name: fourtax-auth
+  datasource:
+    url: ${AUTH_DATABASE_URL:jdbc:postgresql://localhost:5432/fourtax_auth}
+    username: ${POSTGRES_USER:fourtax}
+    password: ${POSTGRES_PASSWORD}
+auth:
+  issuer: ${AUTH_ISSUER:http://localhost:9000}
+  key-store: ${AUTH_KEY_STORE:.local/signing.p12}
+  key-store-password: ${KEYSTORE_PASSWORD}
+  key-alias: signing
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+logging:
+  level:
+    org.springframework.web: INFO
+    org.springframework.security: INFO
+    org.springframework.jdbc.core: INFO

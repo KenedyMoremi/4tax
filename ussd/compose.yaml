@@ -1,0 +1,35 @@
+name: fourtax-ussd
+services:
+  redis:
+    image: redis:8-alpine
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?Run scripts/dev-up.sh in ussd first}
+    command: [sh, -c, 'exec redis-server --appendonly no --save "" --requirepass "$$REDIS_PASSWORD"']
+    networks: [development]
+    healthcheck:
+      test: [CMD-SHELL, 'redis-cli --no-auth-warning -a "$$REDIS_PASSWORD" ping | grep PONG']
+      interval: 3s
+      timeout: 3s
+      retries: 30
+  ussd:
+    build: .
+    ports: ['127.0.0.1:${USSD_PORT:-8080}:8080']
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-dev}
+      REDIS_HOST: redis
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      AUTH_URL: ${AUTH_URL:-http://auth:9000}
+      AUTH_ISSUER: ${AUTH_ISSUER:-http://localhost:9000}
+      AUTH_JWKS_URL: ${AUTH_JWKS_URL:-http://auth:9000/oauth2/jwks}
+      REGISTRATION_URL: ${REGISTRATION_URL:-http://registration-api:8081}
+      USSD_CLIENT_ID: ${USSD_CLIENT_ID:?Provision this application through auth}
+      USSD_CLIENT_SECRET: ${USSD_CLIENT_SECRET:?Provision this application through auth}
+      GATEWAY_KEY: ${GATEWAY_KEY}
+      STATE_SECRET: ${STATE_SECRET}
+    networks: [development]
+    depends_on:
+      redis: {condition: service_healthy}
+networks:
+  development:
+    name: fourtax-development
+    external: true

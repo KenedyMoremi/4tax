@@ -1,0 +1,93 @@
+package ls.fourtax.ussd.journey;
+
+import static ls.fourtax.ussd.api.Contracts.*;
+import java.util.*;
+import java.util.function.Supplier;
+import ls.fourtax.ussd.UssdSettings;
+import ls.fourtax.ussd.api.Backend;
+import ls.fourtax.ussd.callback.*;
+import ls.fourtax.ussd.journey.State.*;
+import ls.fourtax.ussd.session.SessionStore;
+import tools.jackson.databind.json.JsonMapper;
+
+public final class TestSupport {
+    public static UssdSettings settings() { return new UssdSettings("gateway-key-for-tests-123456789", "state-secret-for-tests-123456789012345", 160, 900,
+            "http://localhost:9000", "http://localhost:9000", "http://localhost:9000/oauth2/jwks", "test", "test", "http://localhost:8081"); }
+    public static class MemoryStore implements SessionStore {
+        final Map<String, String> values = new HashMap<>();
+        final Map<String, Long> expiry = new HashMap<>();
+        long now;
+        final JsonMapper json = JsonMapper.builder().build();
+        @Override public synchronized <T> T locked(String key, String mobile, Supplier<T> work) { return work.get(); }
+        @Override public Session session(String key) { return get("session:" + key, Session.class); }
+        @Override public void saveSession(String key, Session s) { put("session:" + key, s); }
+        @Override public void deleteSession(String key) { values.remove("session:" + key); }
+        @Override public Draft draft(String mobile) { return get("draft:" + mobile, Draft.class); }
+        @Override public void saveDraft(String mobile, Draft draft) { put("draft:" + mobile, draft); }
+        @Override public void deleteDraft(String mobile) { values.remove("draft:" + mobile); }
+        @Override public String cached(String key) { return values.get("reply:" + key); }
+        @Override public void cache(String key, String value) { values.put("reply:" + key, value); }
+        private <T> T get(String key, Class<T> type) {
+            String value = values.get(key); return value == null || expiry.getOrDefault(key, 0L) <= now ? null : json.readValue(value, type);
+        }
+        private void put(String key, Object value) { values.put(key, json.writeValueAsString(value)); expiry.put(key, now + 900); }
+        public String serialized() { return values.toString(); }
+        public void advance(long seconds) { now += seconds; }
+    }
+    public static class FakeBackend implements Backend {
+        public int creations;
+        public boolean loseRegistrationReply;
+        public String failure;
+        public final List<String> attempts = new ArrayList<>();
+        public final Map<String, BusinessRegistration> saved = new LinkedHashMap<>();
+        final Map<String, String> pins = new HashMap<>();
+        @Override public TokenReply createOwner(String mobile, String pin, String key) {
+            if (pins.containsKey(mobile)) throw new Failure("OWNER_EXISTS");
+            pins.put(mobile, pin); creations++; return token();
+        }
+        @Override public TokenReply login(String mobile, String pin) {
+            if (!pin.equals(pins.get(mobile))) throw new Failure("INVALID_CREDENTIALS"); return token();
+        }
+        TokenReply token() { return new TokenReply("owner-1", "owner-token", "Bearer", 900); }
+        @Override public String verifyOwner(String token) {
+            if (!"owner-token".equals(token)) throw new Failure("LOGIN_REQUIRED"); return "owner-1";
+        }
+        @Override public RegistrationReply register(String token, BusinessRegistration request, String key) {
+            attempts.add(key);
+            if (failure != null) throw new Failure(failure);
+            if (saved.containsKey(key) && !saved.get(key).equals(request)) throw new Failure("IDEMPOTENCY_CONFLICT");
+            saved.putIfAbsent(key, request);
+            if (loseRegistrationReply) { loseRegistrationReply = false; throw new Failure("SERVICE_UNAVAILABLE"); }
+            return new RegistrationReply("entity-" + saved.size(), "DEMO-0001");
+        }
+    }
+    public static class Driver {
+        public final FakeBackend backend;
+        public final SessionStore store;
+        public final SessionCoordinator coordinator;
+        public final Crypto crypto = new Crypto(settings());
+        public String sessionId = UUID.randomUUID().toString();
+        public String mobile = "+26658123456";
+        public Callback.Reply last;
+        int sequence;
+        public Driver(SessionStore store, FakeBackend backend) {
+            this.store = store; this.backend = backend;
+            var router = new NodeRouter(); var messages = new Messages(); var screen = new Screen(messages, router, settings());
+            var engine = new JourneyEngine(router, backend, store, crypto, messages, screen);
+            coordinator = new SessionCoordinator(store, engine, screen, crypto, messages, JsonMapper.builder().build());
+        }
+        public Callback.Reply start() { sessionId = UUID.randomUUID().toString(); return send(Callback.Event.START, "", "start"); }
+        public Callback.Reply input(String input) { return send(Callback.Event.INPUT, input, "step-" + sequence++); }
+        public Callback.Reply send(Callback.Event event, String input, String id) {
+            last = coordinator.handle(new Callback("test", "TEST", sessionId, mobile, event, input, "*123#", id));
+            if (last.message().length() > 160) throw new AssertionError("Screen exceeds limit");
+            return last;
+        }
+        public Session state() { return store.session(crypto.digest("test:TEST:" + sessionId + ":" + mobile)); }
+        public void steps(String... inputs) { for (String input : inputs) input(input); }
+        public void transportToReview(String language) {
+            start(); steps(language, "1", "1", "VIN00000000000001", "A1234", "000123456789", "Mpho Example", "Maseru", "2");
+        }
+        public void vendorFields() { steps("3", "2", "Maseru market", "1", "000123456789", "Mpho Example"); }
+    }
+}

@@ -1,0 +1,22 @@
+server:
+  port: ${PORT:8081}
+  error:
+    include-message: never
+spring:
+  application:
+    name: fourtax-registration-mock
+mock:
+  issuer: ${AUTH_ISSUER:http://localhost:9000}
+  jwks-url: ${AUTH_JWKS_URL:http://localhost:9000/oauth2/jwks}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+logging:
+  level:
+    org.springframework.web: INFO
+    org.springframework.security: INFO

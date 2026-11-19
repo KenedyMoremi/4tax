@@ -1,0 +1,15 @@
+name: fourtax-ussd-emulator
+services:
+  emulator:
+    build: .
+    ports: ['127.0.0.1:${EMULATOR_PORT:-8090}:8090']
+    environment:
+      DEFAULT_CALLBACK_URL: ${DEFAULT_CALLBACK_URL:-http://ussd:8080/ussd/callback/grapevine}
+      DEFAULT_SERVICE_CODE: ${DEFAULT_SERVICE_CODE:-*123#}
+      LOCALHOST_ALIAS: ${LOCALHOST_ALIAS:-host.docker.internal}
+    extra_hosts: ['host.docker.internal:host-gateway']
+    networks: [development]
+networks:
+  development:
+    name: fourtax-development
+    external: true

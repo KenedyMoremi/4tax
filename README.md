@@ -21,9 +21,31 @@ templates/                              # shared layout, includes, authenticatio
 static/                                 # shared theme and browser utilities
 ```
 
-Bookkeeping remains in `bookkeeping/`. The OpenAI interpretation adapter is in `agents/`, and Twilio transport, phone linking and durable messaging are in `whatsapp/`. No USSD, bookings or new authentication service has been built.
+Bookkeeping remains in `bookkeeping/`. The OpenAI interpretation adapter is in `agents/`, and Twilio transport, phone linking and durable messaging are in `whatsapp/`. Independent Java services for PIN authentication, USSD registration and USSD emulation are included alongside this Django application; their contracts and startup instructions live in their respective directories.
 
-The Python app is `bookkeeping`, while `BookkeepingConfig.label` remains **`books`**. This preserves database table names, permissions/content types, migration dependencies and the configured **`books.User`** identity. Existing migration files are unchanged. The shared user model is defined in `config/auth_models.py` and registered under that historical label when bookkeeping models load. A future standalone authentication service would require its own explicit migration plan; do not change the label or `AUTH_USER_MODEL` as a folder rename.
+The Python app is `bookkeeping`, while `BookkeepingConfig.label` remains **`books`**. This preserves database table names, permissions/content types, migration dependencies and the configured **`books.User`** identity. Existing migration files are unchanged. The shared user model is defined in `config/auth_models.py` and registered under that historical label when bookkeeping models load. The independent Java auth service does not migrate or replace Django identities; integrating those identity systems requires an explicit migration plan.
+
+## Independent USSD services
+
+Each service uses Spring Boot 4.1.2, Java 25 and its own Maven build, Compose file, environment configuration and startup scripts. There is no shared Java module or outer Compose/Maven configuration.
+
+| Service | Purpose | Local address |
+| --- | --- | --- |
+| [auth](auth/README.md) | Application credentials, client-credentials JWTs and owner PIN authentication | http://localhost:9000 |
+| [registration-mock](registration-mock/README.md) | Synthetic external registration API for development | http://localhost:8081 |
+| [ussd](ussd/README.md) | Transport, wellness and vendor journeys in English and Sesotho | http://localhost:8080 |
+| [ussd-emulator](ussd-emulator/README.md) | Browser handset, Vodacom test identities and callback inspection | http://localhost:8090 |
+
+With Java 25, Maven, Docker/Compose and Python 3 available, start them from the repository directory in this order:
+
+```sh
+./auth/scripts/dev-up.sh
+./registration-mock/scripts/dev-up.sh
+./ussd/scripts/dev-up.sh
+./ussd-emulator/scripts/dev-up.sh
+```
+
+The startup scripts generate private service-local `.env` files and signing keys automatically, so no manual secret creation is required. USSD validates its saved application credentials and obtains a replacement from auth when the database is fresh. `.env.example` files document the settings. These services currently use the mock business API and are not wired into the Django bookkeeping database. The emulator's gateway credential field uses `GATEWAY_KEY` from `ussd/.env`.
 
 Routes and URL names remain unchanged. `config/urls.py` owns the shared authentication/admin routes and includes `bookkeeping/urls.py` for the bookkeeping routes. The folder reorganization requires no data transfer. The optional WhatsApp integration adds its own tables and a bookkeeping proposal table through new migrations.
 

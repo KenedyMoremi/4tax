@@ -1,0 +1,22 @@
+server:
+  port: ${PORT:8090}
+  error:
+    include-message: never
+spring:
+  application:
+    name: fourtax-ussd-emulator
+emulator:
+  default-callback-url: ${DEFAULT_CALLBACK_URL:http://localhost:8080/ussd/callback/grapevine}
+  default-service-code: ${DEFAULT_SERVICE_CODE:*123#}
+  localhost-alias: ${LOCALHOST_ALIAS:}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+logging:
+  level:
+    org.springframework.web: INFO

@@ -1,0 +1,15 @@
+name: fourtax-registration-mock
+services:
+  registration-api:
+    build: .
+    ports: ['127.0.0.1:${MOCK_PORT:-8081}:8081']
+    environment:
+      AUTH_ISSUER: ${AUTH_ISSUER:-http://localhost:9000}
+      AUTH_JWKS_URL: ${AUTH_JWKS_URL:-http://auth:9000/oauth2/jwks}
+    networks:
+      development:
+        aliases: [registration-api]
+networks:
+  development:
+    name: fourtax-development
+    external: true

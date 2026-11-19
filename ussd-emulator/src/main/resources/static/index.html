@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>4Tax · USSD emulator</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" type="module"></script>
+</head>
+<body>
+  <header class="topbar"><a class="brand" href="/" aria-label="4Tax emulator home"><span class="brand-mark">4</span><strong>4Tax</strong><span class="brand-divider"></span><span>Developer tools</span></a><span class="local-badge">LOCAL WORKSPACE</span></header>
+  <main>
+    <div class="page-heading"><div><p class="eyebrow">MOBILE NETWORK SANDBOX</p><h1>USSD emulator</h1><p class="intro">Your callback. A test subscriber. The whole conversation.</p></div><div class="transport-badge"><span class="signal-icon" aria-hidden="true"><i></i><i></i><i></i><i></i></span>Grapevine XML <span>v1.3</span></div></div>
+    <div id="notice" class="notice" role="status" hidden></div>
+    <div class="workspace">
+      <aside class="setup-column">
+        <section class="card connection-card" aria-labelledby="connection-title">
+          <div class="card-heading"><h2 id="connection-title">Callback connection</h2><span class="tag">HTTP POST</span></div>
+          <label for="callback-url">Callback URL</label><input id="callback-url" type="url" placeholder="http://localhost:8080/ussd/callback/grapevine" spellcheck="false" autocomplete="off">
+          <p class="field-hint">Called by the emulator server. Active calls keep their original URL.</p>
+          <label for="gateway-key">Gateway key <span class="label-note">optional</span></label><div class="secret-field"><input id="gateway-key" type="password" placeholder="Paste your USSD gateway key" autocomplete="off"><button id="toggle-key" type="button" aria-label="Show gateway key">Show</button></div>
+          <p class="field-hint">Kept in this tab. Never saved to browser storage.</p>
+          <div class="two-fields"><div><label for="service-code">Service code</label><input id="service-code" value="*123#" spellcheck="false"></div><div><label for="idle-timeout">Idle timeout</label><select id="idle-timeout"><option value="180">180 seconds</option><option value="60">60 seconds</option><option value="30">30 seconds</option><option value="0">Off</option></select></div></div>
+          <details class="advanced"><summary>Gateway options</summary><label for="gateway-header">Credential header</label><input id="gateway-header" value="X-Gateway-Key" spellcheck="false"><div class="two-fields"><div><label for="number-format">MSISDN format</label><select id="number-format"><option value="INTERNATIONAL">26658…</option><option value="E164">+26658…</option><option value="LOCAL">58…</option></select></div><div><label for="request-timeout">HTTP timeout</label><select id="request-timeout"><option value="8">8 seconds</option><option value="3">3 seconds</option><option value="15">15 seconds</option><option value="30">30 seconds</option></select></div></div><label class="check"><input id="include-request-id" type="checkbox" checked>Include stable request IDs</label></details>
+        </section>
+        <section class="card" aria-labelledby="subscribers-title">
+          <div class="card-heading"><div><h2 id="subscribers-title">Test subscribers</h2><p class="section-hint">Switch numbers without losing a call.</p></div><span id="subscriber-count" class="count">0</span></div>
+          <div id="subscribers" class="subscriber-list" role="list" aria-label="Test subscribers"></div>
+          <div class="generator-controls"><div><label for="number-prefix">Number prefix</label><input id="number-prefix" value="58" maxlength="2" inputmode="numeric"></div><div><label for="mnc">MNC</label><select id="mnc"><option value="01">01</option><option value="10">10</option></select></div></div>
+          <div class="button-row"><button id="generate-one" class="button secondary" type="button">Generate subscriber</button><button id="generate-five" class="button quiet" type="button">Add 5</button></div>
+          <p class="field-hint synthetic-note">Synthetic Vodacom Lesotho identities · MCC 651</p>
+        </section>
+      </aside>
+      <section class="handset-column" aria-label="USSD handset">
+        <div class="handset-topline"><span id="call-status" class="call-status">READY TO DIAL</span><span id="idle-clock" class="idle-clock"></span></div>
+        <div class="phone">
+          <div class="phone-speaker" aria-hidden="true"></div>
+          <div class="phone-display">
+            <div class="phone-statusbar"><span>VODACOM</span><div><span class="signal-icon" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span class="battery" aria-label="Full battery"></span></div></div>
+            <div class="screen-heading"><span id="screen-code">*123#</span><span id="screen-step">USSD</span></div>
+            <div id="ussd-screen" class="ussd-screen" aria-live="polite" aria-atomic="true"><div class="empty-screen"><span class="empty-symbol" aria-hidden="true">*#</span><strong>A small screen.<br>A complete journey.</strong><p>Choose a subscriber and dial your service to begin.</p></div></div>
+            <form id="reply-form" class="reply-form"><label for="reply-input" class="sr-only">USSD reply</label><input id="reply-input" placeholder="Type a reply…" maxlength="256" autocomplete="off" disabled><button id="send-reply" type="submit" disabled>Send</button></form>
+          </div>
+          <button id="dial" class="dial-button" type="button">Dial service</button>
+          <div class="keypad" aria-label="Numeric keypad">
+            <button type="button" data-key="1">1<span>&nbsp;</span></button><button type="button" data-key="2">2<span>ABC</span></button><button type="button" data-key="3">3<span>DEF</span></button>
+            <button type="button" data-key="4">4<span>GHI</span></button><button type="button" data-key="5">5<span>JKL</span></button><button type="button" data-key="6">6<span>MNO</span></button>
+            <button type="button" data-key="7">7<span>PQRS</span></button><button type="button" data-key="8">8<span>TUV</span></button><button type="button" data-key="9">9<span>WXYZ</span></button>
+            <button type="button" data-key="*">*<span>&nbsp;</span></button><button type="button" data-key="0">0<span>+</span></button><button type="button" data-key="#">#<span>&nbsp;</span></button>
+          </div>
+          <div class="phone-wordmark" aria-hidden="true">4TAX LAB</div>
+        </div>
+        <div class="call-actions"><button id="abort" class="button secondary" type="button" disabled>End call</button><button id="timeout" class="button quiet" type="button" disabled>Simulate timeout</button></div>
+        <p class="handset-hint">Use your keyboard for names, locations and other text.</p>
+      </section>
+      <aside class="inspector-column">
+        <section class="card identity-card" aria-labelledby="identity-title">
+          <div class="card-heading"><h2 id="identity-title">Subscriber identity</h2><button id="edit-subscriber" class="text-button" type="button">Edit</button></div>
+          <dl class="identity-details"><div><dt>MSISDN</dt><dd id="identity-msisdn">—</dd></div><div><dt>IMSI</dt><dd id="identity-imsi">—</dd></div><div><dt>NETWORK</dt><dd id="identity-network">Vodacom Lesotho <span class="tag">651 / 01</span></dd></div><div><dt>SESSION</dt><dd id="identity-session" class="session-value">Starts when you dial</dd></div></dl>
+        </section>
+        <section class="card traffic-card" aria-labelledby="traffic-title">
+          <div class="card-heading"><h2 id="traffic-title">Network traffic</h2><button id="clear-traffic" class="text-button" type="button">Clear</button></div>
+          <div class="traffic-summary"><span id="exchange-count">0 exchanges</span><span id="last-latency">Waiting for a call</span></div>
+          <div id="traffic-list" class="traffic-list" aria-label="Callback exchanges"><p class="empty-traffic">Each screen is a callback.<br>Your requests and responses appear here.</p></div>
+          <div class="payload-tabs" role="tablist" aria-label="Exchange payload"><button id="request-tab" type="button" role="tab" aria-selected="true" data-tab="request">Request</button><button id="response-tab" type="button" role="tab" aria-selected="false" data-tab="response">Response</button></div>
+          <div class="payload-toolbar"><span id="payload-info">XML · UTF-8</span><button id="copy-payload" class="text-button" type="button" disabled>Copy</button></div>
+          <pre id="payload" class="payload" tabindex="0">No exchange selected.</pre>
+          <div id="exchange-error" class="exchange-error" role="status" hidden></div>
+          <div class="inspector-actions"><label class="check"><input id="reveal-input" type="checkbox">Reveal PIN input</label><button id="replay" class="button secondary small" type="button" disabled>Replay request</button></div>
+          <p class="field-hint inspector-note">Replay preserves the session, request ID and XML timestamp. Gateway credentials are never shown.</p>
+        </section>
+      </aside>
+    </div>
+    <footer>4Tax development workspace <span>HTTP callback simulation · No live SIM connection</span></footer>
+  </main>
+  <dialog id="identity-dialog"><form id="identity-form"><div class="card-heading"><h2>Edit test subscriber</h2><button id="close-dialog" class="text-button" type="button">Close</button></div><label for="edit-label">Label</label><input id="edit-label" maxlength="40" required><label for="edit-mobile">Mobile number</label><input id="edit-mobile" required autocomplete="off"><label for="edit-imsi">IMSI</label><input id="edit-imsi" pattern="[0-9]{15}" maxlength="15" required><p class="field-hint">15 digits, starting with 651 and your selected MNC.</p><div class="button-row"><button class="button primary" type="submit">Save subscriber</button><button id="delete-subscriber" class="button quiet danger" type="button">Remove</button></div></form></dialog>
+</body>
+</html>

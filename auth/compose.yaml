@@ -1,0 +1,55 @@
+name: fourtax-auth
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: fourtax_auth
+      POSTGRES_USER: fourtax
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Run scripts/dev-up.sh in auth first}
+    volumes: ['auth-data:/var/lib/postgresql/data']
+    networks: [development]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U fourtax -d fourtax_auth']
+      interval: 3s
+      timeout: 3s
+      retries: 30
+  signing-key:
+    image: eclipse-temurin:25-jdk
+    environment:
+      KEYSTORE_PASSWORD: ${KEYSTORE_PASSWORD}
+    volumes: ['signing-keys:/keys']
+    entrypoint: [/bin/sh, -ec]
+    command:
+      - |
+        if [ ! -f /keys/signing.p12 ]; then
+          keytool -genkeypair -alias signing -keyalg RSA -keysize 3072 -storetype PKCS12 -keystore /keys/signing.p12 -storepass "$$KEYSTORE_PASSWORD" -keypass "$$KEYSTORE_PASSWORD" -dname CN=4Tax-Development -validity 3650
+        fi
+        chown 10001:10001 /keys/signing.p12
+        chmod 400 /keys/signing.p12
+  auth:
+    build: .
+    ports: ['127.0.0.1:${AUTH_PORT:-9000}:9000']
+    environment:
+      AUTH_DATABASE_URL: jdbc:postgresql://postgres:5432/fourtax_auth
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      AUTH_ISSUER: ${AUTH_ISSUER:-http://localhost:9000}
+      AUTH_KEY_STORE: /keys/signing.p12
+      KEYSTORE_PASSWORD: ${KEYSTORE_PASSWORD}
+    volumes: ['signing-keys:/keys:ro']
+    networks:
+      development:
+        aliases: [auth]
+    depends_on:
+      postgres: {condition: service_healthy}
+      signing-key: {condition: service_completed_successfully}
+networks:
+  development:
+    name: fourtax-development
+    external: true
+volumes:
+  auth-data:
+    name: ${AUTH_DATA_VOLUME:-fourtax-auth-data}
+    external: true
+  signing-keys:
+    name: ${AUTH_KEY_VOLUME:-fourtax-auth-signing-keys}
+    external: true

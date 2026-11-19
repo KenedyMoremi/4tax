@@ -1,0 +1,37 @@
+server:
+  port: ${PORT:8080}
+  error:
+    include-message: never
+spring:
+  application:
+    name: fourtax-ussd
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD}
+      timeout: 2s
+ussd:
+  gateway-key: ${GATEWAY_KEY}
+  state-secret: ${STATE_SECRET}
+  screen-limit: ${SCREEN_LIMIT:160}
+  draft-seconds: 900
+  auth-url: ${AUTH_URL:http://localhost:9000}
+  issuer: ${AUTH_ISSUER:http://localhost:9000}
+  jwks-url: ${AUTH_JWKS_URL:http://localhost:9000/oauth2/jwks}
+  client-id: ${USSD_CLIENT_ID}
+  client-secret: ${USSD_CLIENT_SECRET}
+  registration-url: ${REGISTRATION_URL:http://localhost:8081}
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+logging:
+  level:
+    org.springframework.web: INFO
+    org.springframework.data.redis: INFO
+    io.lettuce.core: INFO

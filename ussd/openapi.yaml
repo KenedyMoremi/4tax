@@ -1,0 +1,62 @@
+openapi: 3.1.0
+info:
+  title: 4Tax USSD Callback API
+  version: 0.1.0
+servers:
+  - url: http://localhost:8080
+security: [{gatewayKey: []}]
+paths:
+  /ussd/callback/grapevine:
+    post:
+      operationId: grapevineCallback
+      description: Grapevine v1.3 prototype XML. Operator-specific compatibility must be confirmed before live activation.
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema: {type: string}
+            example: '<ussdAppRequest><msisdn>26658123456</msisdn><sessionId>demo-1</sessionId><network>VOD</network><type>initial</type><code>*123#</code></ussdAppRequest>'
+      responses:
+        '200':
+          description: XML ussdAppResponse containing prompt, responseType string and state NextState or End
+          content:
+            application/xml:
+              schema: {type: string}
+        '400': {description: Malformed or ambiguous callback XML}
+        '401': {description: Missing or incorrect gateway credential}
+        '503': {description: State store unavailable or concurrent request busy}
+  /ussd/callback/simulator:
+    post:
+      operationId: simulateCallback
+      description: Available only in the dev profile. Input is the latest answer, not accumulated text.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [network, sessionId, mobileNumber, event]
+              properties:
+                network: {type: string, minLength: 1, maxLength: 32}
+                sessionId: {type: string, minLength: 1, maxLength: 128}
+                mobileNumber: {type: string}
+                event: {enum: [START, INPUT, ABORT]}
+                input: {type: string, maxLength: 256}
+                serviceCode: {type: string}
+                requestId: {type: string, maxLength: 128}
+      responses:
+        '200':
+          description: Next screen or terminal message
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message, end]
+                properties:
+                  message: {type: string}
+                  end: {type: boolean}
+        '400': {description: Invalid callback}
+        '401': {description: Missing or incorrect gateway credential}
+components:
+  securitySchemes:
+    gatewayKey: {type: apiKey, in: header, name: X-Gateway-Key}

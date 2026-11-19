@@ -1,0 +1,9 @@
+<ussdAppRequest>
+  <msisdn>26658123456</msisdn>
+  <sessionId>demo-1</sessionId>
+  <parameter></parameter>
+  <type>initial</type>
+  <network>VOD</network>
+  <code>*123#</code>
+  <requestId>demo-1-start</requestId>
+</ussdAppRequest>

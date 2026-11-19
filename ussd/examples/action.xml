@@ -1,0 +1,9 @@
+<ussdAppRequest>
+  <msisdn>26658123456</msisdn>
+  <sessionId>demo-1</sessionId>
+  <name>nextStateAction</name>
+  <network>VOD</network>
+  <fields><field><name>userResponse</name><value>1</value></field></fields>
+  <type>action</type>
+  <requestId>demo-1-step-1</requestId>
+</ussdAppRequest>

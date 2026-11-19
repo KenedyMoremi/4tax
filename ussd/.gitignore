@@ -1,0 +1,6 @@
+target/
+.env
+.local/
+__pycache__/
+*.log
+.DS_Store

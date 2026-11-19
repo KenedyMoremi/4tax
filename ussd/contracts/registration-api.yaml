@@ -1,0 +1,122 @@
+openapi: 3.1.0
+info:
+  title: External 4Tax Business Registration Contract
+  version: 0.1.0
+  description: Consumer contract owned locally by USSD. Implemented by registration-mock for development.
+servers:
+  - url: http://localhost:8081
+paths:
+  /api/v1/businesses:
+    post:
+      operationId: createBusiness
+      description: |
+        Validate signature, issuer, expiry, audience registration-api, kind owner and businesses:create scope.
+        Derive ownership from JWT sub, never from supplied identity fields. Owner ID number is self-reported.
+        Persist idempotency by (JWT sub, Idempotency-Key), including the original payload and result.
+        Replay the same payload with 200/201 and the same entityId/reference; changed payload returns 409.
+        422 VALIDATION_ERROR and 409 CONFLICT mean no entity was created. Lost responses and 5xx are ambiguous.
+      security: [{ownerJwt: []}]
+      parameters:
+        - in: header
+          name: Idempotency-Key
+          required: true
+          schema: {type: string, pattern: '^[A-Za-z0-9._:-]{1,128}$'}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Registration'}
+      responses:
+        '201': {$ref: '#/components/responses/Registered'}
+        '200': {$ref: '#/components/responses/Registered'}
+        '400': {$ref: '#/components/responses/Error'}
+        '401': {description: Invalid or expired owner token}
+        '403': {description: Invalid audience/kind or missing scope}
+        '409': {$ref: '#/components/responses/Error'}
+        '422': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+components:
+  securitySchemes:
+    ownerJwt: {type: http, scheme: bearer, bearerFormat: JWT}
+  schemas:
+    Registration:
+      type: object
+      required: [sector, owner, source]
+      properties:
+        sector: {type: string, enum: [TRANSPORT, WELLNESS, VENDOR]}
+        owner:
+          type: object
+          required: [idNumber, fullNames]
+          properties:
+            idNumber: {type: string, minLength: 1, maxLength: 64}
+            fullNames: {type: string, minLength: 1, maxLength: 80}
+            residence: {type: [string, 'null'], maxLength: 120}
+        businessName: {type: [string, 'null'], maxLength: 80}
+        mobileNumber: {type: [string, 'null'], pattern: '^\+[1-9][0-9]{7,14}$'}
+        location: {type: [string, 'null'], maxLength: 120}
+        vehicle:
+          type: [object, 'null']
+          required: [vin, numberPlate]
+          properties:
+            vin: {type: string, minLength: 1, maxLength: 32}
+            numberPlate: {type: string, minLength: 1, maxLength: 32}
+        operatingSchedule:
+          type: [object, 'null']
+          required: [days, opensAt, closesAt]
+          properties:
+            days:
+              type: array
+              minItems: 1
+              uniqueItems: true
+              items: {enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY]}
+            opensAt: {type: string, pattern: '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$'}
+            closesAt: {type: string, pattern: '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$'}
+        source:
+          type: object
+          required: [channel, language]
+          properties:
+            channel: {const: USSD}
+            language: {enum: [en, st]}
+      allOf:
+        - if: {properties: {sector: {const: TRANSPORT}}}
+          then:
+            required: [vehicle]
+            properties:
+              vehicle: {type: object}
+              owner: {required: [residence], properties: {residence: {type: string, minLength: 1}}}
+        - if: {properties: {sector: {const: WELLNESS}}}
+          then:
+            required: [businessName, mobileNumber, location, operatingSchedule]
+            properties:
+              businessName: {type: string, minLength: 1}
+              mobileNumber: {type: string}
+              location: {type: string, minLength: 1}
+              operatingSchedule: {type: object}
+        - if: {properties: {sector: {const: VENDOR}}}
+          then:
+            required: [mobileNumber, location]
+            properties:
+              mobileNumber: {type: string}
+              location: {type: string, minLength: 1}
+  responses:
+    Registered:
+      description: Confirmed business entity, or replay of a confirmed creation
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [entityId, reference]
+            properties:
+              entityId: {type: string}
+              reference: {type: string, minLength: 1, maxLength: 64}
+    Error:
+      description: INVALID_IDEMPOTENCY_KEY, VALIDATION_ERROR, CONFLICT, IDEMPOTENCY_CONFLICT or SERVICE_UNAVAILABLE
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [code, message, fields]
+            properties:
+              code: {type: string}
+              message: {type: string}
+              fields: {type: object, additionalProperties: {type: string}}
