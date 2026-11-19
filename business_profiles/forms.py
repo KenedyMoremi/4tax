@@ -148,6 +148,9 @@ class ProfileForms:
         form_class, groups = SECTORS[sector]
         self.main = form_class(data, prefix='details', initial=initial.get('details', {}))
         self.main.order_fields(sorted(self.main.fields, key=lambda key: key not in ('business_type', 'service_type', 'goods_type', 'activity')))
+        category = next(key for key in self.main.fields if key in ('business_type', 'service_type', 'goods_type', 'activity'))
+        self.category_fields = [self.main[category]]
+        self.operation_fields = [field for field in self.main if field.name != category]
         self.groups = []
         for prefix, label, row_form, minimum in groups:
             factory = formset_factory(row_form, extra=1, min_num=minimum, validate_min=True, max_num=50, validate_max=True, absolute_max=60, can_delete=True)

@@ -176,7 +176,7 @@
             {
               "name": "price",
               "label": "Price per route (M)",
-              "type": "integer",
+              "type": "decimal",
               "required": true,
               "min_value": "0",
               "decimal_places": "2"
@@ -903,7 +903,7 @@
         {
           "name": "farmland_size",
           "label": "Total farmland size",
-          "type": "integer",
+          "type": "decimal",
           "required": true,
           "min_value": "0",
           "decimal_places": "4"

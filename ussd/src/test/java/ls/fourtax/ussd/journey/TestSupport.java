@@ -116,7 +116,7 @@ public final class TestSupport {
                     input(value);
                 } else throw new AssertionError("Unexpected node: " + node);
             }
-            if (!state().node.equals("REVIEW")) throw new AssertionError("Did not reach review");
+            if (!state().node.equals("REVIEW")) throw new AssertionError("Did not reach review; stopped at " + state().node);
         }
     }
 }

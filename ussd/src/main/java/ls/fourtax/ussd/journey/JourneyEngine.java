@@ -131,7 +131,7 @@ public class JourneyEngine {
             s.draft.answers.put(name, Integer.toString(rows.size())); router.next(s, name);
         } else if (input.equals("3")) {
             rows.clear(); s.draft.answers.remove(name);
-        } else invalid(s);
+        } else { invalid(s); return; }
         save(s);
     }
     private void field(Session s, String field, String input) {

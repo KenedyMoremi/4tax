@@ -97,8 +97,8 @@ def registration_options(request):
 
     def describe(name, field):
         kind = ('boolean' if isinstance(field, forms.BooleanField) else
-                'integer' if isinstance(field, forms.IntegerField) else
                 'decimal' if isinstance(field, forms.DecimalField) else
+                'integer' if isinstance(field, forms.IntegerField) else
                 'multiple_choice' if isinstance(field, forms.MultipleChoiceField) else
                 'choice' if isinstance(field, forms.ChoiceField) else
                 'time' if isinstance(field, forms.TimeField) else 'string')

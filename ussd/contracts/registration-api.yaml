@@ -339,17 +339,8 @@
                   "description": "Route ends at"
                 },
                 "price": {
-                  "oneOf": [
-                    {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 1000000
-                    },
-                    {
-                      "type": "string",
-                      "pattern": "^[0-9]+$"
-                    }
-                  ],
+                  "type": "string",
+                  "pattern": "^[0-9]+(\\.[0-9]+)?$",
                   "description": "Price per route (M)"
                 }
               }
@@ -1006,17 +997,8 @@
                 "description": "Number of farmland plots (0 if none)"
               },
               "farmland_size": {
-                "oneOf": [
-                  {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 1000000
-                  },
-                  {
-                    "type": "string",
-                    "pattern": "^[0-9]+$"
-                  }
-                ],
+                "type": "string",
+                "pattern": "^[0-9]+(\\.[0-9]+)?$",
                 "description": "Total farmland size"
               },
               "farmland_unit": {

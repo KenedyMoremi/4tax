@@ -113,6 +113,9 @@ class RegistrationAPITests(TestCase):
         response = self.client.get('/api/v1/registration/options')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.json()['sectors']), 5)
+        transport = response.json()['sectors'][0]
+        routes = next(row for row in transport['collections'] if row['name'] == 'routes')
+        self.assertEqual(routes['fields'][2]['type'], 'decimal')
         for sector in response.json()['sectors']:
             staff = next(row for row in sector['collections'] if row['name'] == 'employees')
             self.assertEqual(staff['actions'], ['add_another', 'continue'])

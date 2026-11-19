@@ -31,6 +31,10 @@ class JourneyTest {
             var registration = backend.saved.values().iterator().next();
             assertEquals(RegistrationSchema.sectors().get(sector-1), registration.sector());
             assertEquals("100_499", registration.details().get("turnover_range"));
+            String json = tools.jackson.databind.json.JsonMapper.builder().build().writeValueAsString(registration);
+            assertFalse(json.contains("\"routes\":null"));
+            assertFalse(json.contains("\"livestock\":null"));
+            assertFalse(json.contains("ownerId"));
         }
     }
     @Test void employeeNameThenSalaryMenuRepeatsAndCanContinue() {
