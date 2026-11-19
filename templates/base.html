@@ -1,5 +1,5 @@
 {% load static %}<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#f65c00"><meta name="description" content="Simple bookkeeping for small businesses in Lesotho. Manage invoices, expenses and your books in Maloti."><title>{% block title %}Khumo Books{% endblock %} · Made for your business</title><link rel="stylesheet" href="{% static 'css/app.css' %}"><script src="{% static 'js/app.js' %}" defer></script></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#f65c00"><meta name="description" content="Simple bookkeeping for small businesses in Lesotho. Manage invoices, expenses and your books in Maloti."><title>{% block title %}Khumo Books{% endblock %} · Made for your business</title><link rel="stylesheet" href="{% static 'css/app.css' %}"><script src="{% static 'js/app.js' %}" defer></script>{% include 'includes/pwa.html' %}</head>
 <body>{% include 'includes/icons.html' %}<a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-white focus:p-3">Skip to content</a>
 {% if user.is_authenticated %}
 <div id="nav-overlay" class="fixed inset-0 z-30 hidden bg-black/30 lg:hidden"></div>

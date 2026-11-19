@@ -163,3 +163,10 @@ Transport, E-Commerce, Retail and Agriculture businesses have an owner-only POS 
 `/pos/`, with a catalogue, stock quantities, cash/bank/mobile-money payment records,
 printable receipts and full refunds linked to the bookkeeping ledger. See
 [POS setup and deployment](docs/POS.md).
+
+### Install as an app
+
+The main workspace and independently hosted USSD emulator support PWA installation.
+Use **Install app** at the bottom of either site. Business operations still require
+an internet connection; private records are not cached offline.
+See [PWA installation and update behaviour](docs/PWA.md).
