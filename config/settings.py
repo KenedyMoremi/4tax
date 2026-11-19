@@ -72,6 +72,6 @@ WHATSAPP_SEND_INTERVAL_SECONDS = 3  # Twilio Sandbox sender limit; run one sende
 
 BOOKKEEPING_AI_PROVIDER = os.environ.get('BOOKKEEPING_AI_PROVIDER', 'groq')
 GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
-GROQ_BOOKKEEPING_MODEL = os.environ.get('GROQ_BOOKKEEPING_MODEL', 'openai/gpt-oss-20b')
+GROQ_BOOKKEEPING_MODEL = os.environ.get('GROQ_BOOKKEEPING_MODEL', 'openai/gpt-oss-120b')
 
 WHATSAPP_LINK_SECRET = os.environ.get('WHATSAPP_LINK_SECRET', SECRET_KEY)
