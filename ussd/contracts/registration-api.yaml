@@ -1,122 +1,1168 @@
-openapi: 3.1.0
-info:
-  title: External 4Tax Business Registration Contract
-  version: 0.1.0
-  description: Consumer contract owned locally by USSD. Implemented by registration-mock for development.
-servers:
-  - url: http://localhost:8081
-paths:
-  /api/v1/businesses:
-    post:
-      operationId: createBusiness
-      description: |
-        Validate signature, issuer, expiry, audience registration-api, kind owner and businesses:create scope.
-        Derive ownership from JWT sub, never from supplied identity fields. Owner ID number is self-reported.
-        Persist idempotency by (JWT sub, Idempotency-Key), including the original payload and result.
-        Replay the same payload with 200/201 and the same entityId/reference; changed payload returns 409.
-        422 VALIDATION_ERROR and 409 CONFLICT mean no entity was created. Lost responses and 5xx are ambiguous.
-      security: [{ownerJwt: []}]
-      parameters:
-        - in: header
-          name: Idempotency-Key
-          required: true
-          schema: {type: string, pattern: '^[A-Za-z0-9._:-]{1,128}$'}
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: {$ref: '#/components/schemas/Registration'}
-      responses:
-        '201': {$ref: '#/components/responses/Registered'}
-        '200': {$ref: '#/components/responses/Registered'}
-        '400': {$ref: '#/components/responses/Error'}
-        '401': {description: Invalid or expired owner token}
-        '403': {description: Invalid audience/kind or missing scope}
-        '409': {$ref: '#/components/responses/Error'}
-        '422': {$ref: '#/components/responses/Error'}
-        '503': {$ref: '#/components/responses/Error'}
-components:
-  securitySchemes:
-    ownerJwt: {type: http, scheme: bearer, bearerFormat: JWT}
-  schemas:
-    Registration:
-      type: object
-      required: [sector, owner, source]
-      properties:
-        sector: {type: string, enum: [TRANSPORT, WELLNESS, VENDOR]}
-        owner:
-          type: object
-          required: [idNumber, fullNames]
-          properties:
-            idNumber: {type: string, minLength: 1, maxLength: 64}
-            fullNames: {type: string, minLength: 1, maxLength: 80}
-            residence: {type: [string, 'null'], maxLength: 120}
-        businessName: {type: [string, 'null'], maxLength: 80}
-        mobileNumber: {type: [string, 'null'], pattern: '^\+[1-9][0-9]{7,14}$'}
-        location: {type: [string, 'null'], maxLength: 120}
-        vehicle:
-          type: [object, 'null']
-          required: [vin, numberPlate]
-          properties:
-            vin: {type: string, minLength: 1, maxLength: 32}
-            numberPlate: {type: string, minLength: 1, maxLength: 32}
-        operatingSchedule:
-          type: [object, 'null']
-          required: [days, opensAt, closesAt]
-          properties:
-            days:
-              type: array
-              minItems: 1
-              uniqueItems: true
-              items: {enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY]}
-            opensAt: {type: string, pattern: '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$'}
-            closesAt: {type: string, pattern: '^(?:[01][0-9]|2[0-3]):[0-5][0-9]$'}
-        source:
-          type: object
-          required: [channel, language]
-          properties:
-            channel: {const: USSD}
-            language: {enum: [en, st]}
-      allOf:
-        - if: {properties: {sector: {const: TRANSPORT}}}
-          then:
-            required: [vehicle]
-            properties:
-              vehicle: {type: object}
-              owner: {required: [residence], properties: {residence: {type: string, minLength: 1}}}
-        - if: {properties: {sector: {const: WELLNESS}}}
-          then:
-            required: [businessName, mobileNumber, location, operatingSchedule]
-            properties:
-              businessName: {type: string, minLength: 1}
-              mobileNumber: {type: string}
-              location: {type: string, minLength: 1}
-              operatingSchedule: {type: object}
-        - if: {properties: {sector: {const: VENDOR}}}
-          then:
-            required: [mobileNumber, location]
-            properties:
-              mobileNumber: {type: string}
-              location: {type: string, minLength: 1}
-  responses:
-    Registered:
-      description: Confirmed business entity, or replay of a confirmed creation
-      content:
-        application/json:
-          schema:
-            type: object
-            required: [entityId, reference]
-            properties:
-              entityId: {type: string}
-              reference: {type: string, minLength: 1, maxLength: 64}
-    Error:
-      description: INVALID_IDEMPOTENCY_KEY, VALIDATION_ERROR, CONFLICT, IDEMPOTENCY_CONFLICT or SERVICE_UNAVAILABLE
-      content:
-        application/json:
-          schema:
-            type: object
-            required: [code, message, fields]
-            properties:
-              code: {type: string}
-              message: {type: string}
-              fields: {type: object, additionalProperties: {type: string}}
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "4Tax Five-Sector Registration API",
+    "version": "2.0.0",
+    "description": "Implemented by Django business_profiles. Replaces the legacy three-sector mock contract."
+  },
+  "servers": [
+    {
+      "url": "https://4tax.vercel.app"
+    }
+  ],
+  "paths": {
+    "/api/v1/registration/options": {
+      "get": {
+        "summary": "Public sector menu definitions",
+        "responses": {
+          "200": {
+            "description": "Schema version 2 field definitions and repeatable collections"
+          }
+        }
+      }
+    },
+    "/api/v1/businesses": {
+      "post": {
+        "operationId": "createBusiness",
+        "description": "Ownership is derived only from verified JWT issuer and UUID sub. Persist retries by issuer, subject and Idempotency-Key. Payload changes with the same key return 409. Registrations do not create web accounts or bookkeeping entries.",
+        "security": [
+          {
+            "ownerJwt": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Registration"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Identical retry",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Registered"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Registration saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Registered"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON or idempotency key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid owner token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Owner kind/scope required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Idempotency payload conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Payload exceeds 16384 bytes",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "JSON required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Field validation failed; no creation",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Unavailable; retry with same key and payload",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ownerJwt": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "RS256, configured issuer, exp/iat/sub/iss/aud required; audience registration-api; kind owner; scope businesses:create."
+      }
+    },
+    "schemas": {
+      "transport": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sector",
+          "owner",
+          "details",
+          "source",
+          "routes",
+          "employees"
+        ],
+        "properties": {
+          "sector": {
+            "const": "transport"
+          },
+          "owner": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "fullNames",
+              "idNumber"
+            ],
+            "properties": {
+              "fullNames": {
+                "type": "string",
+                "maxLength": 250,
+                "minLength": 1,
+                "description": "Business owner’s full names"
+              },
+              "idNumber": {
+                "type": "string",
+                "maxLength": 40,
+                "minLength": 1,
+                "description": "Owner’s national identity number"
+              }
+            }
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "business_type",
+              "working_days",
+              "opens_at",
+              "closes_at",
+              "location",
+              "turnover_range",
+              "vin",
+              "license_plate"
+            ],
+            "properties": {
+              "business_type": {
+                "type": "string",
+                "enum": [
+                  "taxi",
+                  "cab",
+                  "catch_a_ride"
+                ],
+                "description": "Type of transport"
+              },
+              "working_days": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "Monday",
+                    "Tuesday",
+                    "Wednesday",
+                    "Thursday",
+                    "Friday",
+                    "Saturday",
+                    "Sunday"
+                  ]
+                },
+                "description": "Working days"
+              },
+              "opens_at": {
+                "type": "string",
+                "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$",
+                "description": "Work starts"
+              },
+              "closes_at": {
+                "type": "string",
+                "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$",
+                "description": "Work ends"
+              },
+              "overnight": {
+                "type": "boolean",
+                "description": "Work ends on the following day (including a 24-hour shift)"
+              },
+              "location": {
+                "type": "string",
+                "maxLength": 250,
+                "minLength": 1,
+                "description": "Business location"
+              },
+              "turnover_range": {
+                "type": "string",
+                "enum": [
+                  "100_499",
+                  "500_999",
+                  "1000_9999",
+                  "10000_49999",
+                  "50000_plus"
+                ],
+                "description": "Monthly turnover (M)"
+              },
+              "vin": {
+                "type": "string",
+                "maxLength": 250,
+                "minLength": 1,
+                "description": "VIN / chassis number"
+              },
+              "license_plate": {
+                "type": "string",
+                "maxLength": 250,
+                "minLength": 1,
+                "description": "License plate number"
+              }
+            }
+          },
+          "businessName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 250
+          },
+          "source": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "channel",
+              "language"
+            ],
+            "properties": {
+              "channel": {
+                "const": "USSD"
+              },
+              "language": {
+                "enum": [
+                  "en",
+                  "st"
+                ]
+              }
+            }
+          },
+          "routes": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 50,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "origin",
+                "destination",
+                "price"
+              ],
+              "properties": {
+                "origin": {
+                  "type": "string",
+                  "maxLength": 250,
+                  "minLength": 1,
+                  "description": "Route starts at"
+                },
+                "destination": {
+                  "type": "string",
+                  "maxLength": 250,
+                  "minLength": 1,
+                  "description": "Route ends at"
+                },
+                "price": {
+                  "type": "string",
+                  "pattern": "^[0-9]+(\\.[0-9]+)?$",
+                  "description": "Price per route (M)"
+                }
+              }
+            }
+          },
+          "employees": {
+            "type": "array",
+            "minItems": 0,
+            "maxItems": 50,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "salary_range"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "maxLength": 250,
+                  "minLength": 1,
+                  "description": "Employee’s full names"
+                },
+                "salary_range": {
+                  "type": "string",
+                  "enum": [
+                    "500_999",
+                    "1000_9999",
+                    "10000_19999",
+                    "20000_plus"
+                  ],
+                  "description": "Monthly salary (M)"
+                }
+              }
+            }
+          }
+        }
+      },
+      "services": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sector",
+          "owner",
+          "details",
+          "source",
+          "employees"
+        ],
+        "properties": {
+          "sector": {
+            "const": "services"
+          },
+          "owner": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "fullNames",
+              "idNumber"
+            ],
+            "properties": {
+              "fullNames": {
+                "type": "string",
+                "maxLength": 250,
+                "minLength": 1,
+                "description": "Business owner’s full names"
+              },
+              "idNumber": {
+                "type": "string",
+                "maxLength": 40,
+                "minLength": 1,
+                "description": "Owner’s national identity number"
+              }
+            }
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "service_type",
+              "working_days",
+              "opens_at",
+              "closes_at",
+              "location",
+              "turnover_range",
+              "service_price_range"
+            ],
+            "properties": {
+              "service_type": {
+                "type": "string",
+                "enum": [
+                  "salon",
+                  "mechanic",
+                  "plumber",
+                  "electrician",
+                  "bricklayer"
+                ],
+                "description": "Type of service"
+              },
+              "working_days": {
+                "type": "array",
+                "minItems": 1,
+                "uniqueItems": true,
+                "items": {
+                  "type": "string",
+                  "enum": [
+                    "Monday",
+                    "Tuesday",
+                    "Wednesday",
+                    "Thursday",
+                    "Friday",
+                    "Saturday",
+                    "Sunday"
+                  ]
+                },
+                "description": "Working days"
+              },
+              "opens_at": {
+                "type": "string",
+                "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$",
+                "description": "Work starts"
+              },
+              "closes_at": {
+                "type": "string",
+                "pattern": "^(?:[01][0-9]|2[0-3]):[0-5][0-9]$",
+                "description": "Work ends"
+              },
+              "overnight": {
+                "type": "boolean",
+                "description": "Work ends on the following day (including a 24-hour shift)"
+              },
+              "location": {
+                "type": "string",
+                "maxLength": 250,
+                "minLength": 1,
+                "description": "Business location"
+              },
+              "turnover_range": {
+                "type": "string",
+                "enum": [
+                  "100_499",
+                  "500_999",
+                  "1000_9999",
+                  "10000_49999",
+                  "50000_plus"
+                ],
+                "description": "Monthly turnover (M)"
+              },
+              "service_price_range": {
+                "type": "string",
+                "enum": [
+                  "100_499",
+                  "500_999",
+                  "1000_9999",
+                  "10000_49999",
+                  "50000_plus"
+                ],
+                "description": "Price per service (M)"
+              }
+            }
+          },
+          "businessName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 250
+          },
+          "source": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "channel",
+              "language"
+            ],
+            "properties": {
+              "channel": {
+                "const": "USSD"
+              },
+              "language": {
+                "enum": [
+                  "en",
+                  "st"
+                ]
+              }
+            }
+          },
+          "employees": {
+            "type": "array",
+            "minItems": 0,
+            "maxItems": 50,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "salary_range"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "maxLength": 250,
+                  "minLength": 1,
+                  "description": "Employee’s full names"
+                },
+                "salary_range": {
+                  "type": "string",
+                  "enum": [
+                    "500_999",
+                    "1000_9999",
+                    "10000_19999",
+                    "20000_plus"
+                  ],
+                  "description": "Monthly salary (M)"
+                }
+              }
+            }
+          }
+        }
+      },
+      "ecommerce": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sector",
+          "owner",
+          "details",
+          "source",
+          "employees"
+        ],
+        "properties": {
+          "sector": {
+            "const": "ecommerce"
+          },
+          "owner": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "fullNames",
+              "idNumber"
+            ],
+            "properties": {
+              "fullNames": {
+                "type": "string",
+                "maxLength": 250,
+                "minLength": 1,
+                "description": "Business owner’s full names"
+              },
+              "idNumber": {
+                "type": "string",
+                "maxLength": 40,
+                "minLength": 1,
+                "description": "Owner’s national identity number"
+              }
+            }
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "service_type",
+              "location",
+              "turnover_range",
+              "purchase_price_range",
+              "selling_price_range",
+              "shipping_price_range"
+            ],
+            "properties": {
+              "service_type": {
+                "type": "string",
+                "enum": [
+                  "shein_runner",
+                  "takealot",
+                  "other"
+                ],
+                "description": "Type of service"
+              },
+              "location": {
+                "type": "string",
+                "maxLength": 250,
+                "minLength": 1,
+                "description": "Business location"
+              },
+              "turnover_range": {
+                "type": "string",
+                "enum": [
+                  "100_499",
+                  "500_999",
+                  "1000_9999",
+                  "10000_49999",
+                  "50000_plus"
+                ],
+                "description": "Monthly turnover (M)"
+              },
+              "other_description": {
+                "type": "string",
+                "maxLength": 250,
+                "description": "Describe Other (if selected)"
+              },
+              "purchase_price_range": {
+                "type": "string",
+                "enum": [
+                  "100_499",
+                  "500_999",
+                  "1000_9999",
+                  "10000_49999",
+                  "50000_plus"
+                ],
+                "description": "Item purchase price (M)"
+              },
+              "selling_price_range": {
+                "type": "string",
+                "enum": [
+                  "100_499",
+                  "500_999",
+                  "1000_9999",
+                  "10000_49999",
+                  "50000_plus"
+                ],
+                "description": "Item selling price (M)"
+              },
+              "shipping_price_range": {
+                "type": "string",
+                "enum": [
+                  "100_499",
+                  "500_999",
+                  "1000_9999",
+                  "10000_49999",
+                  "50000_plus"
+                ],
+                "description": "Shipping / logistics price (M)"
+              }
+            }
+          },
+          "businessName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 250
+          },
+          "source": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "channel",
+              "language"
+            ],
+            "properties": {
+              "channel": {
+                "const": "USSD"
+              },
+              "language": {
+                "enum": [
+                  "en",
+                  "st"
+                ]
+              }
+            }
+          },
+          "employees": {
+            "type": "array",
+            "minItems": 0,
+            "maxItems": 50,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "salary_range"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "maxLength": 250,
+                  "minLength": 1,
+                  "description": "Employee’s full names"
+                },
+                "salary_range": {
+                  "type": "string",
+                  "enum": [
+                    "500_999",
+                    "1000_9999",
+                    "10000_19999",
+                    "20000_plus"
+                  ],
+                  "description": "Monthly salary (M)"
+                }
+              }
+            }
+          }
+        }
+      },
+      "retail": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sector",
+          "owner",
+          "details",
+          "source",
+          "employees"
+        ],
+        "properties": {
+          "sector": {
+            "const": "retail"
+          },
+          "owner": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "fullNames",
+              "idNumber"
+            ],
+            "properties": {
+              "fullNames": {
+                "type": "string",
+                "maxLength": 250,
+                "minLength": 1,
+                "description": "Business owner’s full names"
+              },
+              "idNumber": {
+                "type": "string",
+                "maxLength": 40,
+                "minLength": 1,
+                "description": "Owner’s national identity number"
+              }
+            }
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "goods_type",
+              "location",
+              "turnover_range",
+              "purchase_price_range",
+              "selling_price_range"
+            ],
+            "properties": {
+              "goods_type": {
+                "type": "string",
+                "enum": [
+                  "clothing",
+                  "fruits",
+                  "food",
+                  "all",
+                  "other"
+                ],
+                "description": "Type of goods"
+              },
+              "location": {
+                "type": "string",
+                "maxLength": 250,
+                "minLength": 1,
+                "description": "Business location"
+              },
+              "turnover_range": {
+                "type": "string",
+                "enum": [
+                  "100_499",
+                  "500_999",
+                  "1000_9999",
+                  "10000_49999",
+                  "50000_plus"
+                ],
+                "description": "Monthly turnover (M)"
+              },
+              "other_description": {
+                "type": "string",
+                "maxLength": 250,
+                "description": "Describe Other (if selected)"
+              },
+              "purchase_price_range": {
+                "type": "string",
+                "enum": [
+                  "100_499",
+                  "500_999",
+                  "1000_9999",
+                  "10000_49999",
+                  "50000_plus"
+                ],
+                "description": "Item purchase price (M)"
+              },
+              "selling_price_range": {
+                "type": "string",
+                "enum": [
+                  "100_499",
+                  "500_999",
+                  "1000_9999",
+                  "10000_49999",
+                  "50000_plus"
+                ],
+                "description": "Item selling price (M)"
+              }
+            }
+          },
+          "businessName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 250
+          },
+          "source": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "channel",
+              "language"
+            ],
+            "properties": {
+              "channel": {
+                "const": "USSD"
+              },
+              "language": {
+                "enum": [
+                  "en",
+                  "st"
+                ]
+              }
+            }
+          },
+          "employees": {
+            "type": "array",
+            "minItems": 0,
+            "maxItems": 50,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "salary_range"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "maxLength": 250,
+                  "minLength": 1,
+                  "description": "Employee’s full names"
+                },
+                "salary_range": {
+                  "type": "string",
+                  "enum": [
+                    "500_999",
+                    "1000_9999",
+                    "10000_19999",
+                    "20000_plus"
+                  ],
+                  "description": "Monthly salary (M)"
+                }
+              }
+            }
+          }
+        }
+      },
+      "agriculture": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sector",
+          "owner",
+          "details",
+          "source",
+          "livestock",
+          "employees"
+        ],
+        "properties": {
+          "sector": {
+            "const": "agriculture"
+          },
+          "owner": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "fullNames",
+              "idNumber"
+            ],
+            "properties": {
+              "fullNames": {
+                "type": "string",
+                "maxLength": 250,
+                "minLength": 1,
+                "description": "Business owner’s full names"
+              },
+              "idNumber": {
+                "type": "string",
+                "maxLength": 40,
+                "minLength": 1,
+                "description": "Owner’s national identity number"
+              }
+            }
+          },
+          "details": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "activity",
+              "location",
+              "turnover_range",
+              "selling_price_range",
+              "farmland_count",
+              "farmland_size",
+              "farmland_unit"
+            ],
+            "properties": {
+              "activity": {
+                "type": "string",
+                "enum": [
+                  "farming",
+                  "livestock",
+                  "other"
+                ],
+                "description": "Agricultural activity"
+              },
+              "location": {
+                "type": "string",
+                "maxLength": 250,
+                "minLength": 1,
+                "description": "Business location"
+              },
+              "turnover_range": {
+                "type": "string",
+                "enum": [
+                  "100_499",
+                  "500_999",
+                  "1000_9999",
+                  "10000_49999",
+                  "50000_plus"
+                ],
+                "description": "Monthly turnover (M)"
+              },
+              "other_description": {
+                "type": "string",
+                "maxLength": 250,
+                "description": "Describe Other (if selected)"
+              },
+              "selling_price_range": {
+                "type": "string",
+                "enum": [
+                  "100_499",
+                  "500_999",
+                  "1000_9999",
+                  "10000_49999",
+                  "50000_plus"
+                ],
+                "description": "Selling price of output (M)"
+              },
+              "farmland_count": {
+                "oneOf": [
+                  {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000
+                  },
+                  {
+                    "type": "string",
+                    "pattern": "^[0-9]+$"
+                  }
+                ],
+                "description": "Number of farmland plots (0 if none)"
+              },
+              "farmland_size": {
+                "type": "string",
+                "pattern": "^[0-9]+(\\.[0-9]+)?$",
+                "description": "Total farmland size"
+              },
+              "farmland_unit": {
+                "type": "string",
+                "enum": [
+                  "hectares",
+                  "acres",
+                  "square_metres"
+                ],
+                "description": "Farmland size unit"
+              }
+            }
+          },
+          "businessName": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 250
+          },
+          "source": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "channel",
+              "language"
+            ],
+            "properties": {
+              "channel": {
+                "const": "USSD"
+              },
+              "language": {
+                "enum": [
+                  "en",
+                  "st"
+                ]
+              }
+            }
+          },
+          "livestock": {
+            "type": "array",
+            "minItems": 0,
+            "maxItems": 50,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "animal_type",
+                "number"
+              ],
+              "properties": {
+                "animal_type": {
+                  "type": "string",
+                  "maxLength": 250,
+                  "minLength": 1,
+                  "description": "Type of livestock"
+                },
+                "number": {
+                  "oneOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 1000000
+                    },
+                    {
+                      "type": "string",
+                      "pattern": "^[0-9]+$"
+                    }
+                  ],
+                  "description": "Number of animals"
+                }
+              }
+            }
+          },
+          "employees": {
+            "type": "array",
+            "minItems": 0,
+            "maxItems": 50,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "name",
+                "salary_range"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "maxLength": 250,
+                  "minLength": 1,
+                  "description": "Employee’s full names"
+                },
+                "salary_range": {
+                  "type": "string",
+                  "enum": [
+                    "500_999",
+                    "1000_9999",
+                    "10000_19999",
+                    "20000_plus"
+                  ],
+                  "description": "Monthly salary (M)"
+                }
+              }
+            }
+          }
+        }
+      },
+      "Registration": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/transport"
+          },
+          {
+            "$ref": "#/components/schemas/services"
+          },
+          {
+            "$ref": "#/components/schemas/ecommerce"
+          },
+          {
+            "$ref": "#/components/schemas/retail"
+          },
+          {
+            "$ref": "#/components/schemas/agriculture"
+          }
+        ],
+        "description": "Other requires other_description; farming requires positive land count/size; livestock activity requires livestock rows. Count and size are both zero or both positive. End time <= start time requires overnight=true. Monthly salary/turnover; LSL currency."
+      },
+      "Registered": {
+        "type": "object",
+        "required": [
+          "entityId",
+          "reference"
+        ],
+        "properties": {
+          "entityId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "reference": {
+            "type": "string",
+            "maxLength": 64
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "code",
+          "message",
+          "fields"
+        ],
+        "properties": {
+          "code": {
+            "type": "string"
+          },
+          "message": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

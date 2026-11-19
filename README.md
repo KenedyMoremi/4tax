@@ -45,7 +45,7 @@ With Java 25, Maven, Docker/Compose and Python 3 available, start them from the 
 ./ussd-emulator/scripts/dev-up.sh
 ```
 
-The startup scripts generate private service-local `.env` files and signing keys automatically, so no manual secret creation is required. USSD validates its saved application credentials and obtains a replacement from auth when the database is fresh. `.env.example` files document the settings. These services currently use the mock business API and are not wired into the Django bookkeeping database. The emulator's gateway credential field uses `GATEWAY_KEY` from `ussd/.env`.
+The startup scripts generate private service-local `.env` files and signing keys automatically, so no manual secret creation is required. USSD validates its saved application credentials and obtains a replacement from auth when the database is fresh. `.env.example` files document the settings. The revised USSD client uses the five-sector Django registration API. The three-sector registration mock is retained only for legacy development; use the configuration in docs/USSD_REGISTRATION.md for the current client. The emulator's gateway credential field uses `GATEWAY_KEY` from `ussd/.env`.
 
 Routes and URL names remain unchanged. `config/urls.py` owns the shared authentication/admin routes and includes `bookkeeping/urls.py` for the bookkeeping routes. The folder reorganization requires no data transfer. The optional WhatsApp integration adds its own tables and a bookkeeping proposal table through new migrations.
 
@@ -154,4 +154,4 @@ Groq (default), optional OpenAI, and Twilio Sandbox integration is implemented, 
 
 ## Sector-specific web registration
 
-New owners sign up with a username and password, choose one of five sectors, then enter their business details. **Business profile** also lets existing owners add and edit their information. Registration lives in `business_profiles/`; saving operational details does not post financial transactions. See [sector fields, validation and migration notes](docs/SECTOR_ONBOARDING.md). The separate USSD journeys remain unchanged in this web-first release.
+New owners sign up with a username and password, choose one of five sectors, then enter their business details. **Business profile** also lets existing owners add and edit their information. Registration lives in `business_profiles/`; saving operational details does not post financial transactions. See [sector fields, validation and migration notes](docs/SECTOR_ONBOARDING.md). The same five-sector fields now power USSD menus and authenticated registration endpoints; see [USSD registration](docs/USSD_REGISTRATION.md).

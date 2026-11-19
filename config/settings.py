@@ -75,3 +75,7 @@ GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
 GROQ_BOOKKEEPING_MODEL = os.environ.get('GROQ_BOOKKEEPING_MODEL', 'openai/gpt-oss-120b')
 
 WHATSAPP_LINK_SECRET = os.environ.get('WHATSAPP_LINK_SECRET', SECRET_KEY)
+
+# Trusted issuer and public JWKS endpoint for USSD owner tokens. Empty disables the API.
+REGISTRATION_AUTH_ISSUER = os.environ.get('REGISTRATION_AUTH_ISSUER', '')
+REGISTRATION_AUTH_JWKS_URL = os.environ.get('REGISTRATION_AUTH_JWKS_URL', '')

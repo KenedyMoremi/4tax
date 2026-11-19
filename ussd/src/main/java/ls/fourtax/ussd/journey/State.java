@@ -26,6 +26,8 @@ public final class State {
         public void clearPin() { pinDigest = null; pinNonce = null; }
     }
     public static final class Draft {
+        public int schemaVersion = 2;
+        public Map<String, List<Map<String, String>>> collections = new LinkedHashMap<>();
         public String operationId = UUID.randomUUID().toString();
         public String sector;
         public String language = "en";

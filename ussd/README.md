@@ -9,38 +9,33 @@ From this directory:
 ```sh
 mvn verify
 ./scripts/dev-up.sh
-python3 scripts/smoke-test.py
 docker compose ps
 docker compose down
 ```
 
 Requirements: Java 25, Maven 3.9+, Docker/Compose and Python 3. Maven tests use a real Redis Testcontainer. Unit-only execution is available with `mvn -Dtest=JourneyTest,GrapevineXmlTest test`.
 
-Start the independent [auth service](../auth/README.md) first and the [registration mock](../registration-mock/README.md) for local business creation. Each is started using its own `scripts/dev-up.sh`. This service's script generates its own `.env`, obtains an application client ID/secret from auth's public provisioning endpoint, saves that pair locally, and starts only USSD and Redis.
+Start the independent [auth service](../auth/README.md) first and the Django application for business creation. Apply its migrations to a disposable development database and configure its trusted auth issuer/JWKS. The old registration mock and smoke scripts use the legacy contract and must not be used with the new journeys. Each is started using its own `scripts/dev-up.sh`. This service's script generates its own `.env`, obtains an application client ID/secret from auth's public provisioning endpoint, saves that pair locally, and starts only USSD and Redis.
 
-All local stacks join `fourtax-development`; each startup script can create that Docker network. Internal defaults are `AUTH_URL=http://auth:9000`, `AUTH_JWKS_URL=http://auth:9000/oauth2/jwks` and `REGISTRATION_URL=http://registration-api:8081`. Host-side provisioning uses `AUTH_PUBLIC_URL=http://localhost:9000`. Replace these URLs to use separately deployed APIs. This service never reads a sibling service's environment file. Startup validates its saved client credentials with auth and automatically provisions a replacement when starting against a fresh auth database.
+All local stacks join `fourtax-development`; each startup script can create that Docker network. Legacy Compose defaults (override REGISTRATION_URL to the Django API before using these journeys) are `AUTH_URL=http://auth:9000`, `AUTH_JWKS_URL=http://auth:9000/oauth2/jwks` and `REGISTRATION_URL=http://registration-api:8081`. Host-side provisioning uses `AUTH_PUBLIC_URL=http://localhost:9000`. Replace these URLs to use separately deployed APIs. This service never reads a sibling service's environment file. Startup validates its saved client credentials with auth and automatically provisions a replacement when starting against a fresh auth database.
 
 Default callback port is 8080. `.env.example` describes service-local settings. Startup automatically generates a private `.env` and obtains application credentials from auth; no manual secret creation is required. Existing local credentials are retained when auth accepts them.
 
 ## Registration journeys
 
-| Sector | Required information | Optional information |
-| --- | --- | --- |
-| Transport | VIN, number plate, owner's ID number, full names and residence | Business name |
-| Wellness | Booking mobile number, operating days, opening/closing time, business name/location, owner's ID number and full names | None specified |
-| Vendors | Location, mobile number, owner's ID number and full names | Business name |
+The five sectors are Transport, Services, E-Commerce, Retail and Agriculture. Their choices and fields are generated from the Django web forms into `registration-schema.json`; run `python manage.py export_registration_schema` at the repository root after changing those forms. CI checks for drift. See [field definitions and API setup](../docs/USSD_REGISTRATION.md).
 
-One transport registration captures one vehicle. Owners may register multiple vehicles/businesses. Wellness uses one time range for selected days, with presets and custom weekday selection. Names and locations are free text; identifiers remain strings so leading zeros are preserved. Local validation checks presence/basic format; the external system owns authoritative business validation.
+All sectors collect owner names, national identity number, location, monthly turnover and named employees with a separate monthly salary choice. Employee, route and livestock collection menus support Add another / Continue / Clear entries. Transport starts with Taxi/Cab/Catch-a-ride before details. Agriculture separately captures farmland count and size/unit. Exact decimal amounts are strings, and ranges use stable categorical keys. Existing registered entities are not overwritten.
 
 Choose English or Sesotho, then Register business or Login. A new owner completes business details, review/edit, PIN creation and confirmation. With an application JWT cached or obtained first, USSD calls auth to create the account and obtain an owner JWT, then calls the external API to create the entity. The PIN is sent only to auth.
 
-Existing owners log in using the MNO-supplied caller number and PIN. Their post-login menu offers **Add business**, reusing the same sector flows without PIN creation. Booking/vendor contact numbers can use the caller's number or another number; they do not change the login identity.
+Existing owners log in using the MNO-supplied caller number and PIN. Their post-login menu offers **Add business**, reusing the same sector flows without PIN creation.
 
 Viewing, editing existing registered entities and recording transactions are deferred. Editing during registration is available from review.
 
 - `0`: Back; `99`: Exit.
 - `88` / `87`: Next/previous page on multi-page screens.
-- Optional names have an explicit Skip choice.
+- Optional text accepts `-` to skip; numeric fields accept `00` for zero because `0` is Back.
 - Screen text defaults to a configurable 160-character limit.
 
 Every prompt, validation message and outcome has English and Sesotho wording in `src/main/resources/messages*.properties`. **Sesotho is draft copy requiring fluent-speaker review before live use.**

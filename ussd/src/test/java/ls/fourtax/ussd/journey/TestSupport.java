@@ -86,8 +86,37 @@ public final class TestSupport {
         public Session state() { return store.session(crypto.digest("test:TEST:" + sessionId + ":" + mobile)); }
         public void steps(String... inputs) { for (String input : inputs) input(input); }
         public void transportToReview(String language) {
-            start(); steps(language, "1", "1", "VIN00000000000001", "A1234", "000123456789", "Mpho Example", "Maseru", "2");
+            start(); steps(language, "1", "1"); fillToReview();
         }
-        public void vendorFields() { steps("3", "2", "Maseru market", "1", "000123456789", "Mpho Example"); }
+        public void vendorFields() { input("4"); fillToReview(); }
+        public void fillToReview() {
+            for (int step=0; step<100 && !state().node.equals("REVIEW"); step++) {
+                String node = state().node;
+                if (node.startsWith("COLLECTION:")) {
+                    String group = node.substring(11);
+                    int minimum = RegistrationSchema.group(state().draft.sector, group).get("minimum").asInt();
+                    input(state().draft.collections.getOrDefault(group, List.of()).size() < minimum ? "1" : "2");
+                } else if (node.startsWith("FIELD:")) {
+                    String name = node.substring(6);
+                    var field = RegistrationSchema.field(state().draft.sector, name);
+                    String value = switch(name) {
+                        case "fullNames" -> "Mpho Example";
+                        case "idNumber" -> "000123456789";
+                        case "vin" -> "VIN00000000000001";
+                        case "license_plate" -> "A1234";
+                        case "location", "routes.origin" -> "Maseru";
+                        case "routes.destination" -> "Roma";
+                        case "routes.price" -> "25.50";
+                        case "opens_at" -> "08:00";
+                        case "closes_at" -> "17:00";
+                        case "overnight" -> "2";
+                        case "other_description" -> "-";
+                        default -> "1";
+                    };
+                    input(value);
+                } else throw new AssertionError("Unexpected node: " + node);
+            }
+            if (!state().node.equals("REVIEW")) throw new AssertionError("Did not reach review; stopped at " + state().node);
+        }
     }
 }

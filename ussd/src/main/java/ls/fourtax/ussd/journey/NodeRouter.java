@@ -7,23 +7,15 @@ import org.springframework.stereotype.Component;
 @Component
 public class NodeRouter {
     public List<String> fields(String sector) {
-        return switch (sector) {
-            case "TRANSPORT" -> List.of("vin", "numberPlate", "idNumber", "fullNames", "residence", "businessName");
-            case "WELLNESS" -> List.of("mobileNumber", "days", "opensAt", "closesAt", "businessName", "location", "idNumber", "fullNames");
-            case "VENDOR" -> List.of("businessName", "location", "mobileNumber", "idNumber", "fullNames");
-            default -> throw new IllegalArgumentException("Unknown sector");
-        };
+        return RegistrationSchema.fields(sector);
     }
     public String fieldNode(Draft draft, String field) {
-        if (field.equals("mobileNumber")) return "CONTACT";
-        if (field.equals("days")) return "DAYS";
-        if (field.equals("businessName") && !draft.sector.equals("WELLNESS")) return "OPTIONAL_NAME";
-        return "FIELD:" + field;
+        return RegistrationSchema.group(draft.sector, field) == null ? "FIELD:" + field : "COLLECTION:" + field;
     }
     public void go(Session session, String node) {
         if (!session.node.equals(node)) session.history.add(session.node);
         session.node = node; session.page = 0; session.error = null;
-        if (session.draft != null && (node.startsWith("FIELD:") || Set.of("SECTOR", "CONTACT", "DAYS", "OPTIONAL_NAME", "REVIEW", "EDIT").contains(node)))
+        if (session.draft != null && ((node.startsWith("FIELD:") || node.startsWith("COLLECTION:")) || Set.of("SECTOR", "CONTACT", "DAYS", "OPTIONAL_NAME", "REVIEW", "EDIT").contains(node)))
             session.draft.node = node;
     }
     public void next(Session session, String field) {

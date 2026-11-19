@@ -1,5 +1,10 @@
 (() => {
   document.querySelectorAll('[data-collection]').forEach(section => {
+    section.querySelector('[data-continue]')?.addEventListener('click', () => {
+      const next = section.nextElementSibling;
+      next?.scrollIntoView({behavior: 'smooth', block: 'start'});
+      next?.querySelector('input:not([type=hidden]),select,button')?.focus();
+    });
     const prefix = section.dataset.collection;
     const total = section.querySelector(`[name="${prefix}-TOTAL_FORMS"]`);
     const rows = section.querySelector('[data-rows]');

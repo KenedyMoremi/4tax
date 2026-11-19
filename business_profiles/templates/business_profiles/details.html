@@ -3,15 +3,16 @@
 {% block content %}
 <div class="max-w-5xl"><p class="eyebrow">{% if editing %}Your business profile{% else %}Step 2 of 2 · Business setup{% endif %}</p><h1 class="page-title mt-3">{{ title }}</h1><p class="mt-3 text-gray-500">Amounts are in Maloti (M). These details describe your business; saving them does not post transactions or run payroll.</p>
 <form method="post" class="mt-7 space-y-6" data-profile-form>{% csrf_token %}
+<section class="panel space-y-5 p-6"><h2 class="text-lg font-semibold">Choose your business activity</h2>{% include 'includes/fields.html' with form=profile_forms.category_fields %}</section>
 <section class="panel space-y-5 p-6"><h2 class="text-lg font-semibold">Owner identification</h2><p class="text-sm text-gray-500">Enter the owner's national ID as written, including leading zeros. This records the ID; it does not verify it with an identity authority.</p>{% include 'includes/fields.html' with form=profile_forms.identity %}</section>
 <section class="panel space-y-5 p-6"><h2 class="text-lg font-semibold">Business information</h2><div class="grid gap-5 sm:grid-cols-2">{% include 'includes/fields.html' with form=business_form %}</div></section>
-<section class="panel space-y-5 p-6"><h2 class="text-lg font-semibold">Operations</h2><div class="grid gap-5 sm:grid-cols-2">{% include 'includes/fields.html' with form=profile_forms.main %}</div></section>
+<section class="panel space-y-5 p-6"><h2 class="text-lg font-semibold">Operations</h2><div class="grid gap-5 sm:grid-cols-2">{{ profile_forms.main.non_field_errors }}{% include 'includes/fields.html' with form=profile_forms.operation_fields %}</div></section>
 {% for group in profile_forms.groups %}<section class="panel space-y-5 p-6" data-collection="{{ group.prefix }}">
 <h2 class="text-lg font-semibold">{{ group.label }}</h2><p class="text-sm text-gray-500">{% if group.minimum %}At least {{ group.minimum }} required.{% else %}Leave unused rows empty when this does not apply.{% endif %} Add separate rows for different items or groups. Maximum 50 rows.</p>
 {{ group.formset.management_form }}{{ group.formset.non_form_errors }}
 <div data-rows class="space-y-4">{% for row in group.formset %}{% include 'business_profiles/row.html' with row=row %}{% endfor %}</div>
 <template data-empty-row>{% include 'business_profiles/row.html' with row=group.formset.empty_form %}</template>
-<button type="button" class="btn-secondary" data-add-row>Add another row</button><p class="text-sm text-gray-500" data-row-limit aria-live="polite"></p>
+<div class="flex flex-wrap gap-3"><button type="button" class="btn-secondary" data-add-row>{% if group.prefix == 'employees' %}Add another employee{% elif group.prefix == 'livestock' %}Add another livestock type{% else %}Add another route{% endif %}</button><button type="button" class="btn-secondary" data-continue>Continue</button></div><p class="text-sm text-gray-500" data-row-limit aria-live="polite"></p>
 </section>{% endfor %}
 <div class="flex flex-wrap gap-3"><button type="submit" class="btn-primary">{% if editing %}Save business details{% else %}Complete business setup{% endif %}</button>{% if not editing %}<a class="btn-secondary" href="{% url 'onboarding' %}">Choose another sector</a>{% else %}<a class="btn-secondary" href="{% url 'dashboard' %}">Cancel</a>{% endif %}</div>
 <noscript><p class="mt-4 text-sm">Enable JavaScript to add multiple rows. You can save the rows shown here without JavaScript and add more by editing the profile again.</p></noscript>
