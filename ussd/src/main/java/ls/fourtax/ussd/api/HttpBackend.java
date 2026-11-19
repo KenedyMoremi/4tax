@@ -98,10 +98,10 @@ public class HttpBackend implements Backend {
         var form = new LinkedMultiValueMap<String, String>();
         form.add("grant_type", "client_credentials"); form.add("scope", "owners:create owners:login");
         Map<?, ?> response = call("application-token", settings.authUrl(), "/oauth2/token", Map.of(
-                "grant_type", "client_credentials", "scope", "owners:create owners:login", "clientCredentials", "[redacted]"),
+                "grant_type", "client_credentials", "scope", "owners:create owners:login"),
                 () -> auth.post().uri("/oauth2/token").headers(h -> h.setBasicAuth(settings.clientId(), settings.clientSecret()))
                         .contentType(MediaType.APPLICATION_FORM_URLENCODED).body(form).retrieve().toEntity(Map.class),
-                body -> Map.of("access_token", "[redacted]", "token_type", "Bearer"));
+                HttpBackend::applicationPreview);
         if (!(response.get("access_token") instanceof String token) || token.isBlank()
                 || !(response.get("expires_in") instanceof Number expires) || expires.longValue() <= 0)
             throw new Failure("SERVICE_UNAVAILABLE");
@@ -144,6 +144,13 @@ public class HttpBackend implements Backend {
         }
     }
     private static Object pinPreview() { return Map.of("mobileNumber", "[redacted]", "pin", "[redacted]"); }
+    private static Object applicationPreview(Map<?, ?> body) {
+        Map<String, Object> preview = new LinkedHashMap<>();
+        if (body.containsKey("access_token")) preview.put("access_token", "[redacted]");
+        if (body.containsKey("expires_in")) preview.put("expires_in", body.get("expires_in") instanceof Number n ? n : "[invalid]");
+        if (body.containsKey("token_type")) preview.put("token_type", "Bearer".equalsIgnoreCase(String.valueOf(body.get("token_type"))) ? "Bearer" : "[invalid]");
+        return preview;
+    }
     private static Object tokenPreview(TokenReply token) {
         return Map.of("ownerId", "[redacted]", "accessToken", "[redacted]", "tokenType", "Bearer", "expiresIn", token.expiresIn());
     }
