@@ -218,9 +218,9 @@ class BooksTests(TestCase):
         user = get_user_model().objects.create_user(username='new-owner',password='Test-safe-password-389')
         self.client.force_login(user)
         self.assertRedirects(self.client.get('/'),reverse('onboarding'))
-        response = self.client.post(reverse('onboarding'),{'name':'New business','district':'Maseru','default_tax_rate':'0'})
-        self.assertRedirects(response,'/')
-        self.assertEqual(Account.objects.filter(business__owner=user).count(),17)
+        response = self.client.post(reverse('onboarding'),{'sector':'transport'})
+        self.assertRedirects(response,reverse('sector_details',args=['transport']))
+        self.assertFalse(Business.objects.filter(owner=user).exists())
 
     def test_signup_creates_custom_user(self):
         self.client.logout()

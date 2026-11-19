@@ -13,6 +13,7 @@
 <a class="nav-link {% if active == 'reports' %}active{% endif %}" href="{% url 'reports' %}"><svg class="icon"><use href="#i-chart"/></svg>Reports</a>
 <a class="nav-link {% if active == 'whatsapp' %}active{% endif %}" href="{% url 'whatsapp_setup' %}">WhatsApp</a>
 <a class="nav-link {% if active == 'agent' %}active{% endif %}" href="{% url 'agent_records' %}">Agent records</a>
+<a class="nav-link {% if active == 'profile' %}active{% endif %}" href="{% url 'onboarding' %}">Business profile</a>
 </nav>
 <div class="mt-4 rounded-xl bg-[#fff5ed] p-4"><div class="mb-2 flex items-center gap-2 text-orange-800"><svg class="icon"><use href="#i-shield"/></svg><span class="text-sm font-semibold">Built for Basotho business</span></div><p class="text-xs leading-relaxed text-gray-600">A clearer picture of your money.<br>A stronger future for your business.</p></div>
 <a class="nav-link mt-3 {% if active == 'settings' %}active{% endif %}" href="{% url 'settings' %}"><svg class="icon"><use href="#i-settings"/></svg>Business settings</a>

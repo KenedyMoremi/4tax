@@ -151,3 +151,7 @@ Scope: this release covers core bookkeeping for one owner per business. It does 
 ## WhatsApp bookkeeping agent
 
 Groq (default), optional OpenAI, and Twilio Sandbox integration is implemented, disabled by default. Owners verify their phone, send a text transaction and confirm the validated preview before posting. See [setup, worker operation and limitations](docs/WHATSAPP.md). Provider credentials, the new migrations and a running worker are required for activation.
+
+## Sector-specific web registration
+
+New owners sign up with a username and password, choose one of five sectors, then enter their business details. **Business profile** also lets existing owners add and edit their information. Registration lives in `business_profiles/`; saving operational details does not post financial transactions. See [sector fields, validation and migration notes](docs/SECTOR_ONBOARDING.md). The separate USSD journeys remain unchanged in this web-first release.

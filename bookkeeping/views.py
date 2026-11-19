@@ -38,18 +38,6 @@ def add_errors(form, error):
         form.add_error(None, message)
 
 
-@login_required
-def onboarding(request):
-    if Business.objects.filter(owner=request.user).exists():
-        return redirect('dashboard')
-    form = forms.BusinessForm(request.POST or None)
-    if request.method == 'POST' and form.is_valid():
-        services.setup_business(owner=request.user, **form.cleaned_data)
-        messages.success(request, 'Your workspace is ready. Add a contact or record your opening funds to get started.')
-        return redirect('dashboard')
-    return render(request, 'bookkeeping/form.html', {'form':form, 'title':'Let’s set up your business', 'subtitle':'Your books, built around your business in Lesotho.', 'submit':'Create workspace'})
-
-
 @business_required
 def dashboard(request):
     business = request.business

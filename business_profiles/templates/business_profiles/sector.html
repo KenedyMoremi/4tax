@@ -1,0 +1,9 @@
+{% extends 'base.html' %}
+{% block title %}Choose your sector{% endblock %}
+{% block breadcrumb %}Business setup{% endblock %}
+{% block content %}
+<div class="max-w-4xl"><p class="eyebrow">Step 1 of 2 · Business setup</p><h1 class="page-title mt-3">What kind of business do you run?</h1><p class="mt-3 text-gray-500">Choose a sector to see the details needed for your business.</p>
+<form method="post" class="mt-7">{% csrf_token %}{{ form.non_field_errors }}{{ form.sector.errors }}
+<div class="grid gap-4 sm:grid-cols-2">{% for choice in form.sector %}<label class="panel flex cursor-pointer items-start gap-4 p-6"><span class="mt-1">{{ choice.tag }}</span><span><strong class="block text-lg">{{ choice.choice_label }}</strong><span class="mt-2 block text-sm text-gray-500">{% if choice.data.value == 'transport' %}Taxis, cabs and catch-a-ride businesses. Routes, fares, vehicles and servicing.{% elif choice.data.value == 'services' %}Salons, mechanics, plumbers, electricians and bricklayers. Services, equipment and employees.{% elif choice.data.value == 'ecommerce' %}Online retailers and Shein runners. Items, shipping, marketing, devices and data.{% elif choice.data.value == 'retail' %}Clothing, fruit and food sellers. Stock, item prices, location and employees.{% else %}Farming, livestock and animal breeding. Inputs, outputs, farmland and animals.{% endif %}</span></span></label>{% endfor %}</div>
+<button type="submit" class="btn-primary mt-6">Continue to business details</button></form></div>
+{% endblock %}

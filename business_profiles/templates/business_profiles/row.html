@@ -1,0 +1,4 @@
+<div class="rounded-xl border border-gray-200 p-4" data-row>
+{{ row.non_field_errors }}<div class="grid gap-4 sm:grid-cols-2">{% for field in row %}{% if field.name == 'DELETE' %}<div class="field" data-delete-control><label for="{{ field.id_for_label }}">Remove this row {{ field }}</label></div>{% elif field.is_hidden %}{{ field }}{{ field.errors }}{% else %}<div class="field"><label for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %}<span class="text-brand"> *</span>{% endif %}</label>{{ field }}{{ field.errors }}</div>{% endif %}{% endfor %}</div>
+<button type="button" class="btn-secondary mt-4" data-remove-row hidden>Remove row</button>
+</div>

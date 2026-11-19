@@ -3,7 +3,6 @@ from . import views, agent_views
 
 urlpatterns = [
     path('agent/records/', agent_views.records, name='agent_records'),
-    path('setup/', views.onboarding, name='onboarding'),
     path('', views.dashboard, name='dashboard'),
     path('documents/<str:kind>/', views.documents, name='documents'),
     path('documents/<str:kind>/new/', views.document_create, name='document_create'),
