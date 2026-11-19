@@ -50,10 +50,31 @@ you are not given conversation history. For summary/help requests, suggest SUMMA
 '''
 
 
+def provider_name():
+    return {'openai': 'OpenAI', 'groq': 'Groq'}.get(settings.BOOKKEEPING_AI_PROVIDER, 'Unconfigured AI provider')
+
+
+def provider_key():
+    return {'openai': settings.OPENAI_API_KEY, 'groq': settings.GROQ_API_KEY}.get(settings.BOOKKEEPING_AI_PROVIDER, '')
+
+
 def interpret(message, *, context):
-    if not settings.OPENAI_API_KEY:
+    if not provider_key():
         raise AgentUnavailable('ai_not_configured')
     try:
+        if settings.BOOKKEEPING_AI_PROVIDER == 'groq':
+            with OpenAI(api_key=settings.GROQ_API_KEY, base_url='https://api.groq.com/openai/v1', timeout=20.0, max_retries=0) as client:
+                result = client.chat.completions.create(
+                    model=settings.GROQ_BOOKKEEPING_MODEL,
+                    messages=[{'role': 'system', 'content': INSTRUCTIONS + '\nTrusted context: ' + context},
+                              {'role': 'user', 'content': message}],
+                    response_format={'type': 'json_schema', 'json_schema': {
+                        'name': 'bookkeeping_record', 'strict': True, 'schema': RecordIntent.model_json_schema()}},
+                    reasoning_effort='low', max_completion_tokens=2000,
+                )
+            if not result.choices or result.choices[0].finish_reason != 'stop' or not result.choices[0].message.content:
+                raise AgentUnavailable('ai_incomplete')
+            return RecordIntent.model_validate_json(result.choices[0].message.content).model_dump()
         with OpenAI(api_key=settings.OPENAI_API_KEY, timeout=20.0, max_retries=0) as client:
             result = client.responses.parse(
                 model=settings.OPENAI_BOOKKEEPING_MODEL,

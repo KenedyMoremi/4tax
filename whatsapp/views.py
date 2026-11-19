@@ -13,6 +13,7 @@ from django.views.decorators.http import require_POST
 from twilio.request_validator import RequestValidator
 from twilio.twiml.messaging_response import MessagingResponse
 from bookkeeping.models import Business
+from agents.bookkeeping import provider_name
 from bookkeeping.views import business_required
 from .linking import LinkForm, change_link
 from .models import WhatsAppLink, InboundMessage
@@ -58,6 +59,8 @@ def webhook(request):
         link = WhatsAppLink.objects.select_for_update().get(pk=candidate.pk)
         if not link.active or link.phone != data['From'][9:] or business.owner_id != link.owner_id:
             return twiml()
+        if link.ai_provider != settings.BOOKKEEPING_AI_PROVIDER:
+            return twiml('The AI provider has changed. Open WhatsApp settings in the app and link your number again to consent.')
         if InboundMessage.objects.filter(sid=data['MessageSid']).exists():
             return twiml()
         if InboundMessage.objects.filter(link=link, created_at__gte=timezone.now()-timedelta(hours=1)).count() >= settings.WHATSAPP_HOURLY_LIMIT:
@@ -83,4 +86,4 @@ def setup(request):
                 form.add_error(None, exc)
     link = WhatsAppLink.objects.filter(business=request.business, owner=request.user).first()
     recent = InboundMessage.objects.filter(link=link).select_related('outboundmessage').order_by('-created_at')[:20] if link else []
-    return render(request, 'whatsapp/setup.html', dict(form=form, link=link, code=code, recent=recent, enabled=settings.WHATSAPP_ENABLED, active='whatsapp', title='WhatsApp bookkeeping'))
+    return render(request, 'whatsapp/setup.html', dict(ai_provider=provider_name(), provider_changed=bool(link and link.ai_provider != settings.BOOKKEEPING_AI_PROVIDER), form=form, link=link, code=code, recent=recent, enabled=settings.WHATSAPP_ENABLED, active='whatsapp', title='WhatsApp bookkeeping'))

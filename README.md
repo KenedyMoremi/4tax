@@ -21,7 +21,7 @@ templates/                              # shared layout, includes, authenticatio
 static/                                 # shared theme and browser utilities
 ```
 
-Bookkeeping remains in `bookkeeping/`. The OpenAI interpretation adapter is in `agents/`, and Twilio transport, phone linking and durable messaging are in `whatsapp/`. Independent Java services for PIN authentication, USSD registration and USSD emulation are included alongside this Django application; their contracts and startup instructions live in their respective directories.
+Bookkeeping remains in `bookkeeping/`. The configurable Groq/OpenAI interpretation adapter is in `agents/`, and Twilio transport, phone linking and durable messaging are in `whatsapp/`. Independent Java services for PIN authentication, USSD registration and USSD emulation are included alongside this Django application; their contracts and startup instructions live in their respective directories.
 
 The Python app is `bookkeeping`, while `BookkeepingConfig.label` remains **`books`**. This preserves database table names, permissions/content types, migration dependencies and the configured **`books.User`** identity. Existing migration files are unchanged. The shared user model is defined in `config/auth_models.py` and registered under that historical label when bookkeeping models load. The independent Java auth service does not migrate or replace Django identities; integrating those identity systems requires an explicit migration plan.
 
@@ -150,4 +150,4 @@ Scope: this release covers core bookkeeping for one owner per business. It does 
 
 ## WhatsApp bookkeeping agent
 
-OpenAI and Twilio Sandbox integration is implemented, disabled by default. Owners verify their phone, send a text transaction and confirm the validated preview before posting. See [setup, worker operation and limitations](docs/WHATSAPP.md). Provider credentials, the new migrations and a running worker are required for activation.
+Groq (default), optional OpenAI, and Twilio Sandbox integration is implemented, disabled by default. Owners verify their phone, send a text transaction and confirm the validated preview before posting. See [setup, worker operation and limitations](docs/WHATSAPP.md). Provider credentials, the new migrations and a running worker are required for activation.

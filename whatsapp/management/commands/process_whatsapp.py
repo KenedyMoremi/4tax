@@ -1,6 +1,7 @@
 import time
 from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
+from agents.bookkeeping import provider_key
 from whatsapp.worker import process_one, send_one
 
 
@@ -13,8 +14,8 @@ class Command(BaseCommand):
         parser.add_argument('--poll-seconds', type=int, default=2)
 
     def handle(self, *args, **options):
-        if not settings.WHATSAPP_ENABLED or not all([settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN, settings.TWILIO_WHATSAPP_FROM, settings.OPENAI_API_KEY]):
-            raise CommandError('Enable WhatsApp and configure the Twilio and OpenAI environment variables first.')
+        if not settings.WHATSAPP_ENABLED or not all([settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN, settings.TWILIO_WHATSAPP_FROM, provider_key()]):
+            raise CommandError('Enable WhatsApp and configure the Twilio and AI provider environment variables first.')
         if not 1 <= options['limit'] <= 100 or not 1 <= options['poll_seconds'] <= 30:
             raise CommandError('Limit must be 1–100 and poll-seconds 1–30.')
         try:

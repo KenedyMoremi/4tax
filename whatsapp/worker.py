@@ -24,7 +24,7 @@ HELP = ('Send one complete record, for example: Paid M250 for transport from M-P
 
 
 def valid_link(link, message):
-    return (link.active and link.generation == message.generation and link.owner.is_active
+    return (link.ai_provider == settings.BOOKKEEPING_AI_PROVIDER and link.active and link.generation == message.generation and link.owner.is_active
             and link.business.owner_id == link.owner_id)
 
 

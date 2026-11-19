@@ -14,7 +14,7 @@ from .linking import change_link
 from .models import WhatsAppLink, InboundMessage, OutboundMessage
 from .worker import process_one, send_one
 
-SETTINGS = dict(WHATSAPP_SEND_INTERVAL_SECONDS=0, WHATSAPP_ENABLED=True, TWILIO_ACCOUNT_SID='AC'+'1'*32, TWILIO_AUTH_TOKEN='test-token', TWILIO_WHATSAPP_FROM='whatsapp:+14155550000', TWILIO_WEBHOOK_URL='http://testserver/webhooks/twilio/whatsapp/', OPENAI_API_KEY='test-only')
+SETTINGS = dict(BOOKKEEPING_AI_PROVIDER='openai', WHATSAPP_SEND_INTERVAL_SECONDS=0, WHATSAPP_ENABLED=True, TWILIO_ACCOUNT_SID='AC'+'1'*32, TWILIO_AUTH_TOKEN='test-token', TWILIO_WHATSAPP_FROM='whatsapp:+14155550000', TWILIO_WEBHOOK_URL='http://testserver/webhooks/twilio/whatsapp/', OPENAI_API_KEY='test-only')
 
 
 @override_settings(**SETTINGS)
@@ -295,3 +295,29 @@ class WhatsAppTests(TestCase):
         process_one()
         ai.assert_not_called()
         self.assertFalse(RecordProposal.objects.exists())
+
+    @override_settings(BOOKKEEPING_AI_PROVIDER='groq', GROQ_API_KEY='test-groq')
+    @patch('agents.bookkeeping.OpenAI')
+    def test_groq_uses_strict_schema_and_validates_json(self, sdk):
+        import json
+        response = MagicMock()
+        response.choices = [MagicMock(finish_reason='stop', message=MagicMock(content=json.dumps(self.intent())))]
+        sdk.return_value.__enter__.return_value.chat.completions.create.return_value = response
+        self.assertEqual(interpret('example', context='{}')['amount'], '250.00')
+        self.assertEqual(sdk.call_args.kwargs['base_url'], 'https://api.groq.com/openai/v1')
+        call = sdk.return_value.__enter__.return_value.chat.completions.create.call_args.kwargs
+        self.assertTrue(call['response_format']['json_schema']['strict'])
+        response.choices[0].message.content = '{"action":"delete"}'
+        with self.assertRaises(AgentUnavailable):
+            interpret('example', context='{}')
+
+    @override_settings(BOOKKEEPING_AI_PROVIDER='groq')
+    @patch('whatsapp.worker.interpret')
+    def test_provider_change_requires_new_consent(self, ai):
+        # Existing OpenAI consent does not authorize sending messages to Groq.
+        self.verified()
+        self.enqueue()
+        process_one()
+        ai.assert_not_called()
+        self.assertContains(self.signed(), 'provider has changed')
+        self.assertContains(self.client.get(reverse('whatsapp_setup')), 'Twilio and Groq')

@@ -2,6 +2,8 @@ import secrets
 import uuid
 from datetime import timedelta
 from django import forms
+from django.conf import settings
+from agents.bookkeeping import provider_name
 from django.core.exceptions import ValidationError
 from django.db import transaction, IntegrityError
 from django.utils import timezone
@@ -12,7 +14,11 @@ from .models import WhatsAppLink
 
 class LinkForm(forms.Form):
     phone = forms.RegexField(r'^\+[1-9][0-9]{7,14}$', max_length=16, label='WhatsApp number', help_text='International format, for example +266 followed by your number.')
-    consent = forms.BooleanField(label='I agree to send my bookkeeping messages to Twilio and OpenAI for processing.')
+    consent = forms.BooleanField()
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['consent'].label = f'I agree to send my bookkeeping messages to Twilio and {provider_name()} for processing.'
 
 
 def digest(code):
@@ -35,7 +41,7 @@ def change_link(business, owner, phone=None):
     if WhatsAppLink.objects.exclude(business=business).filter(phone=phone).exists():
         raise ValidationError('That number is already linked to another workspace.')
     code = secrets.token_hex(8).upper()
-    values = dict(owner=owner, phone=phone, active=True, generation=uuid.uuid4(), verified_at=None,
+    values = dict(ai_provider=settings.BOOKKEEPING_AI_PROVIDER, owner=owner, phone=phone, active=True, generation=uuid.uuid4(), verified_at=None,
                   consent_at=timezone.now(), code_digest=digest(code),
                   code_expires_at=timezone.now()+timedelta(minutes=10), failed_attempts=0)
     try:

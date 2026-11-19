@@ -11,6 +11,7 @@ class WhatsAppLink(models.Model):
     generation = models.UUIDField(default=uuid.uuid4)
     active = models.BooleanField(default=True)
     verified_at = models.DateTimeField(null=True, blank=True)
+    ai_provider = models.CharField(max_length=20, default='openai')
     consent_at = models.DateTimeField(default=timezone.now)
     code_digest = models.CharField(max_length=64, blank=True)
     code_expires_at = models.DateTimeField(null=True, blank=True)

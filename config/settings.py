@@ -69,3 +69,7 @@ OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
 OPENAI_BOOKKEEPING_MODEL = os.environ.get('OPENAI_BOOKKEEPING_MODEL', 'gpt-5.4-mini')
 WHATSAPP_HOURLY_LIMIT = 30
 WHATSAPP_SEND_INTERVAL_SECONDS = 3  # Twilio Sandbox sender limit; run one sender worker.
+
+BOOKKEEPING_AI_PROVIDER = os.environ.get('BOOKKEEPING_AI_PROVIDER', 'groq')
+GROQ_API_KEY = os.environ.get('GROQ_API_KEY', '')
+GROQ_BOOKKEEPING_MODEL = os.environ.get('GROQ_BOOKKEEPING_MODEL', 'openai/gpt-oss-20b')
