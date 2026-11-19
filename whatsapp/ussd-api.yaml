@@ -1,0 +1,537 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "4Tax USSD transaction webhook",
+    "version": "1.0.0",
+    "description": "USSD JSON adapter alongside the unchanged signed Twilio form webhook. Uses the existing AI proposal and ledger functions; no WhatsApp message is sent."
+  },
+  "servers": [
+    {
+      "url": "https://4tax.vercel.app"
+    }
+  ],
+  "paths": {
+    "/webhooks/twilio/whatsapp/": {
+      "post": {
+        "operationId": "ussdSale",
+        "security": [
+          {
+            "ownerJwt": []
+          }
+        ],
+        "description": "Requires owner JWT scope transactions:create. entityId must belong to its issuer and subject. Free text is interpreted into ONE sale or unpaid invoice. Propose creates a preview only; confirm explicitly posts. Paid sales need a payment account. Unpaid invoices need a buyer and due date. Use buyer N/A only for paid sales. fareCost must state per passenger or total. Reuse the same key/payload after timeouts; confirm/cancel reuse the proposal operation key. A phrase in Body is not used for authorization or business selection.",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9._:-]{1,128}$"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "oneOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "channel",
+                      "action",
+                      "entityId",
+                      "sector",
+                      "fields",
+                      "language"
+                    ],
+                    "properties": {
+                      "channel": {
+                        "const": "USSD"
+                      },
+                      "action": {
+                        "const": "propose"
+                      },
+                      "entityId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "sector": {
+                        "const": "transport"
+                      },
+                      "fields": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "route",
+                          "passengers",
+                          "fareCost",
+                          "paymentDetails",
+                          "buyer"
+                        ],
+                        "properties": {
+                          "route": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "passengers": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "fareCost": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "paymentDetails": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "buyer": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          }
+                        }
+                      },
+                      "language": {
+                        "enum": [
+                          "en",
+                          "st"
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "channel",
+                      "action",
+                      "entityId",
+                      "sector",
+                      "fields",
+                      "language"
+                    ],
+                    "properties": {
+                      "channel": {
+                        "const": "USSD"
+                      },
+                      "action": {
+                        "const": "propose"
+                      },
+                      "entityId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "sector": {
+                        "const": "services"
+                      },
+                      "fields": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "service",
+                          "serviceCost",
+                          "paymentDetails",
+                          "buyer"
+                        ],
+                        "properties": {
+                          "service": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "serviceCost": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "paymentDetails": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "buyer": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          }
+                        }
+                      },
+                      "language": {
+                        "enum": [
+                          "en",
+                          "st"
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "channel",
+                      "action",
+                      "entityId",
+                      "sector",
+                      "fields",
+                      "language"
+                    ],
+                    "properties": {
+                      "channel": {
+                        "const": "USSD"
+                      },
+                      "action": {
+                        "const": "propose"
+                      },
+                      "entityId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "sector": {
+                        "const": "ecommerce"
+                      },
+                      "fields": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "goods",
+                          "totalValue",
+                          "paymentDetails",
+                          "buyer"
+                        ],
+                        "properties": {
+                          "goods": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "totalValue": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "paymentDetails": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "buyer": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          }
+                        }
+                      },
+                      "language": {
+                        "enum": [
+                          "en",
+                          "st"
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "channel",
+                      "action",
+                      "entityId",
+                      "sector",
+                      "fields",
+                      "language"
+                    ],
+                    "properties": {
+                      "channel": {
+                        "const": "USSD"
+                      },
+                      "action": {
+                        "const": "propose"
+                      },
+                      "entityId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "sector": {
+                        "const": "retail"
+                      },
+                      "fields": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "goods",
+                          "totalValue",
+                          "paymentDetails",
+                          "buyer"
+                        ],
+                        "properties": {
+                          "goods": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "totalValue": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "paymentDetails": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "buyer": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          }
+                        }
+                      },
+                      "language": {
+                        "enum": [
+                          "en",
+                          "st"
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "channel",
+                      "action",
+                      "entityId",
+                      "sector",
+                      "fields",
+                      "language"
+                    ],
+                    "properties": {
+                      "channel": {
+                        "const": "USSD"
+                      },
+                      "action": {
+                        "const": "propose"
+                      },
+                      "entityId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "sector": {
+                        "const": "agriculture"
+                      },
+                      "fields": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "goods",
+                          "totalValue",
+                          "paymentDetails",
+                          "buyer"
+                        ],
+                        "properties": {
+                          "goods": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "totalValue": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "paymentDetails": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          },
+                          "buyer": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256
+                          }
+                        }
+                      },
+                      "language": {
+                        "enum": [
+                          "en",
+                          "st"
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "channel",
+                      "action",
+                      "entityId",
+                      "transactionId"
+                    ],
+                    "properties": {
+                      "channel": {
+                        "const": "USSD"
+                      },
+                      "action": {
+                        "enum": [
+                          "confirm",
+                          "cancel"
+                        ]
+                      },
+                      "entityId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "transactionId": {
+                        "type": "string",
+                        "format": "uuid"
+                      }
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cache-Control no-store; pending, posted or cancelled. Only posted confirms ledger success.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "transactionId",
+                    "status",
+                    "reference",
+                    "summary",
+                    "result",
+                    "preview"
+                  ],
+                  "properties": {
+                    "transactionId": {
+                      "type": "string",
+                      "format": "uuid"
+                    },
+                    "status": {
+                      "enum": [
+                        "pending",
+                        "posted",
+                        "cancelled"
+                      ]
+                    },
+                    "reference": {
+                      "type": "string"
+                    },
+                    "summary": {
+                      "type": "string",
+                      "description": "Canonical English accounting summary; USSD uses structured preview for localized labels."
+                    },
+                    "result": {
+                      "type": "string"
+                    },
+                    "preview": {
+                      "type": "object",
+                      "required": [
+                        "action",
+                        "description",
+                        "date",
+                        "net",
+                        "tax",
+                        "total",
+                        "buyer",
+                        "paymentAccount",
+                        "dueDate"
+                      ],
+                      "properties": {
+                        "action": {
+                          "type": "string"
+                        },
+                        "description": {
+                          "type": "string"
+                        },
+                        "date": {
+                          "type": "string"
+                        },
+                        "net": {
+                          "type": "string"
+                        },
+                        "tax": {
+                          "type": "string"
+                        },
+                        "total": {
+                          "type": "string"
+                        },
+                        "buyer": {
+                          "type": "string"
+                        },
+                        "paymentAccount": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "dueDate": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_REQUEST / INVALID_IDEMPOTENCY_KEY"
+          },
+          "401": {
+            "description": "INVALID_TOKEN"
+          },
+          "403": {
+            "description": "FORBIDDEN"
+          },
+          "404": {
+            "description": "BUSINESS_NOT_FOUND / TRANSACTION_NOT_FOUND; never reveals another owner"
+          },
+          "409": {
+            "description": "IDEMPOTENCY_CONFLICT / TRANSACTION_BUSY / TRANSACTION_CANCELLED / ALREADY_POSTED"
+          },
+          "413": {
+            "description": "PAYLOAD_TOO_LARGE (8192 bytes)"
+          },
+          "415": {
+            "description": "UNSUPPORTED_MEDIA_TYPE"
+          },
+          "422": {
+            "description": "VALIDATION_ERROR / CLARIFICATION_REQUIRED / PROPOSAL_EXPIRED_OR_CHANGED; no posting"
+          },
+          "503": {
+            "description": "AI_UNAVAILABLE / SERVICE_UNAVAILABLE; retry the same operation"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "ownerJwt": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "RS256; configured auth issuer; audience registration-api; kind owner; transactions:create"
+      }
+    }
+  }
+}

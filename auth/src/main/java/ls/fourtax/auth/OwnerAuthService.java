@@ -27,6 +27,14 @@ public class OwnerAuthService {
         this.tokens = tokens; this.settings = settings; this.dummyHash = passwords.encode("never-a-valid-pin");
     }
 
+    public OwnerStatus lookup(OwnerLookup request) {
+        String phone;
+        try { phone = PhoneNumbers.normalize(request == null ? null : request.mobileNumber()); }
+        catch (IllegalArgumentException error) { throw failure(HttpStatus.BAD_REQUEST, "INVALID_MOBILE"); }
+        return new OwnerStatus(Boolean.TRUE.equals(db.queryForObject(
+                "select exists(select 1 from owner_credentials where mobile_number = ?)", Boolean.class, phone)));
+    }
+
     public TokenReply create(PinRequest request, String key) {
         String phone = phone(request); validatePin(request.pin());
         if (key == null || !key.matches("[A-Za-z0-9._:-]{1,128}"))
@@ -85,7 +93,7 @@ public class OwnerAuthService {
         Instant now = Instant.now();
         var claims = JwtClaimsSet.builder().issuer(settings.issuer()).subject(ownerId.toString())
                 .audience(List.of("registration-api")).issuedAt(now).expiresAt(now.plusSeconds(900))
-                .id(UUID.randomUUID().toString()).claim("scope", "businesses:create").claim("kind", "owner").build();
+                .id(UUID.randomUUID().toString()).claim("scope", "businesses:create businesses:read transactions:create").claim("kind", "owner").build();
         String jwt = tokens.encode(JwtEncoderParameters.from(JwsHeader.with(SignatureAlgorithm.RS256).build(), claims)).getTokenValue();
         return new TokenReply(ownerId.toString(), jwt, "Bearer", 900);
     }

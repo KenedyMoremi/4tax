@@ -38,9 +38,11 @@ def unique_object(pairs):
 @never_cache
 @sensitive_variables()
 def register_business(request):
+    if request.method == 'GET':
+        return list_businesses(request)
     if request.method != 'POST':
         response = error(405, 'METHOD_NOT_ALLOWED')
-        response['Allow'] = 'POST'
+        response['Allow'] = 'GET, POST'
         return response
     try:
         issuer, owner = authenticate_owner(request)
@@ -80,6 +82,25 @@ def register_business(request):
                 return error(409, 'IDEMPOTENCY_CONFLICT')
         return JsonResponse({'entityId': str(registration.pk), 'reference': registration.reference},
                             status=201 if created else 200)
+    except DatabaseError:
+        return error(503, 'SERVICE_UNAVAILABLE')
+
+
+def list_businesses(request):
+    try:
+        issuer, owner = authenticate_owner(request, 'businesses:read')
+    except AuthenticationFailure as failure:
+        return error(failure.status, failure.code)
+    page = request.GET.get('page', '1')
+    if not re.fullmatch(r'[1-9][0-9]{0,5}', page):
+        return error(400, 'INVALID_PAGE')
+    try:
+        offset = (int(page)-1)*5
+        rows = list(USSDRegistration.objects.filter(issuer=issuer, owner_subject=owner).order_by('created_at', 'id')[offset:offset+6])
+        return JsonResponse({'businesses': [{'entityId': str(row.pk), 'reference': row.reference,
+                             'sector': row.payload['sector'],
+                             'businessName': row.payload.get('businessName') or row.payload.get('details', {}).get('license_plate', '')}
+                            for row in rows[:5]], 'nextPage': int(page)+1 if len(rows)>5 else None})
     except DatabaseError:
         return error(503, 'SERVICE_UNAVAILABLE')
 

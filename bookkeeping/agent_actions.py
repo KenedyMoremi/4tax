@@ -127,7 +127,7 @@ def propose(*,business,owner,source_key,data):
 
 
 @transaction.atomic
-def resolve_proposal(*,business,owner,reference,confirm):
+def resolve_proposal(*,business,owner,reference,confirm,channel='WhatsApp'):
     business=Business.objects.select_for_update().get(pk=business.pk,owner=owner,owner__is_active=True)
     proposal=RecordProposal.objects.select_for_update().filter(business=business,owner=owner,reference=reference.upper()).first()
     if not proposal:
@@ -156,14 +156,14 @@ def resolve_proposal(*,business,owner,reference,confirm):
         result=f'Expense #{expense.pk} recorded: M {expense.total:,.2f}.'
     elif action=='payment':
         doc=clean['document']
-        services.record_payment(document=doc,user=owner,account=clean['account'],amount=clean['amount'],date=clean['date'],reference='WhatsApp '+proposal.reference,token=token)
+        services.record_payment(document=doc,user=owner,account=clean['account'],amount=clean['amount'],date=clean['date'],reference=channel+' '+proposal.reference,token=token)
         result=f'Payment recorded against {doc.number}: M {clean["amount"]:,.2f}.'
     else:
         kind='bill' if action=='bill' else 'invoice'
-        doc=services.create_document(business=business,user=owner,kind=kind,data={'contact':contact,'issue_date':clean['date'],'due_date':clean['due_date'] if action in ['bill','invoice'] else clean['date'],'notes':'Confirmed via WhatsApp · '+proposal.reference},lines=[{'description':clean['description'],'quantity':Decimal('1'),'unit_price':clean['net'],'tax_rate':clean['tax_rate']}])
+        doc=services.create_document(business=business,user=owner,kind=kind,data={'contact':contact,'issue_date':clean['date'],'due_date':clean['due_date'] if action in ['bill','invoice'] else clean['date'],'notes':'Confirmed via '+channel+' · '+proposal.reference},lines=[{'description':clean['description'],'quantity':Decimal('1'),'unit_price':clean['net'],'tax_rate':clean['tax_rate']}])
         services.post_document(document=doc,user=owner)
         if action=='sale':
-            services.record_payment(document=doc,user=owner,account=clean['account'],amount=doc.total,date=clean['date'],reference='WhatsApp '+proposal.reference,token=token)
+            services.record_payment(document=doc,user=owner,account=clean['account'],amount=doc.total,date=clean['date'],reference=channel+' '+proposal.reference,token=token)
         result=f'{doc.number} recorded: M {doc.total:,.2f}'+(' (paid).' if action=='sale' else '.')
     proposal.status='posted'
     proposal.confirmed_at=timezone.now()

@@ -62,7 +62,7 @@ class JourneyTest {
     }
     @Test void loginAllowsAnotherBusinessWithoutPinCreation() {
         d.transportToReview("1"); d.steps("1", "012345", "012345");
-        d.start(); d.steps("1", "2", "012345", "1"); d.vendorFields(); d.input("1");
+        d.start(); d.steps("1", "012345", "1"); d.vendorFields(); d.input("1");
         assertTrue(d.last.end()); assertEquals(1, backend.creations); assertEquals(2, backend.saved.size());
     }
     @Test void lostRegistrationResponseRequiresLoginAndReusesIdenticalOperationAfterResume() {
@@ -71,8 +71,8 @@ class JourneyTest {
         assertEquals("RETRY", d.state().node); assertEquals(1, backend.saved.size());
         d.input("2"); assertEquals("RETRY", d.state().node); // Ambiguous submissions cannot be edited into duplicates.
         d.input("99"); assertNull(d.state());
-        d.start(); d.steps("2", "1", "1"); assertEquals("LOGIN_PIN", d.state().node);
-        d.steps("012345", "1");
+        d.start(); d.steps("2"); assertEquals("LOGIN_PIN", d.state().node);
+        d.steps("012345", "1", "1", "1");
         assertTrue(d.last.end()); assertEquals(1, backend.creations); assertEquals(1, backend.saved.size());
         assertEquals(backend.attempts.getFirst(), backend.attempts.getLast());
     }

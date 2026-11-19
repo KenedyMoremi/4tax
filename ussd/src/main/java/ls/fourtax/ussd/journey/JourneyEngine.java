@@ -16,9 +16,11 @@ public class JourneyEngine {
     private final Crypto crypto;
     private final Messages messages;
     private final Screen screens;
+    private final TransactionJourney transactions;
 
     public JourneyEngine(NodeRouter router, Backend backend, SessionStore store, Crypto crypto, Messages messages, Screen screens) {
         this.router = router; this.backend = backend; this.store = store; this.crypto = crypto; this.messages = messages; this.screens = screens;
+        transactions = new TransactionJourney(backend, router, store, crypto);
     }
 
     public void input(Session s, String input) {
@@ -28,6 +30,7 @@ public class JourneyEngine {
                 && !s.node.equals("RESUME")) { router.go(s, "RESUME"); s.error = "error.oldDraft"; return; }
         if (skipInactiveDescription(s)) return;
         if (input.equals("0")) {
+            if (s.node.startsWith("TX_")) { transactions.back(s); return; }
             if (s.draft != null && s.draft.mayHaveSubmitted) { router.go(s, "RETRY"); return; }
             router.back(s); return;
         }
@@ -36,19 +39,26 @@ public class JourneyEngine {
             s.page = Math.max(0, Math.min(count - 1, s.page + (input.equals("88") ? 1 : -1))); return;
         }
         s.error = null; s.page = 0;
+        if (s.node.startsWith("TX_")) { transactions.input(s, input); return; }
         if (s.node.startsWith("COLLECTION:")) { collection(s, s.node.substring(11), input); return; }
         if (s.node.startsWith("FIELD:")) { field(s, s.node.substring(6), input); return; }
         switch (s.node) {
             case "LANGUAGE" -> {
                 if (!List.of("1", "2").contains(input)) { invalid(s); return; }
-                s.language = input.equals("1") ? "en" : "st"; router.go(s, "MAIN");
+                s.language = input.equals("1") ? "en" : "st"; entry(s);
+            }
+            case "ENTRY_RETRY" -> {
+                if (input.equals("1")) entry(s);
+                else if (input.equals("2")) router.go(s, "LOGIN_PIN");
+                else invalid(s);
             }
             case "MAIN" -> {
+                if (s.registered) { router.go(s, "LOGIN_PIN"); return; }
                 if (input.equals("1")) begin(s);
                 else if (input.equals("2")) { s.resumeAfterLogin = false; router.go(s, "LOGIN_PIN"); }
                 else invalid(s);
             }
-            case "AUTH_MENU" -> { if (input.equals("1")) begin(s); else invalid(s); }
+            case "AUTH_MENU" -> { if (input.equals("1")) begin(s); else if (input.equals("2")) transactions.begin(s); else invalid(s); }
             case "RESUME" -> resume(s, input);
             case "SECTOR" -> sector(s, input);
             case "REVIEW" -> review(s, input);
@@ -73,6 +83,14 @@ public class JourneyEngine {
         }
     }
 
+    private void entry(Session s) {
+        try {
+            s.registered = backend.ownerExists(s.mobile);
+            s.resumeAfterLogin = false;
+            router.go(s, s.registered ? "LOGIN_PIN" : "MAIN");
+        } catch (Backend.Failure failure) { router.go(s, "ENTRY_RETRY"); s.error = "error.unavailable"; }
+    }
+
     private boolean authorized(Session s) {
         boolean needsOwner = Node.of(s.node).access() == Node.Access.OWNER
                 || (s.draft != null && s.draft.ownerId != null && !Set.of("LOGIN_PIN", "RESUME", "MAIN", "LANGUAGE").contains(s.node));
@@ -80,10 +98,12 @@ public class JourneyEngine {
         try {
             if (s.token == null || s.tokenExpiry <= Instant.now().getEpochSecond()) throw new Backend.Failure("LOGIN_REQUIRED");
             String ownerId = backend.verifyOwner(s.token);
-            if (!ownerId.equals(s.ownerId) || (s.draft != null && s.draft.ownerId != null && !ownerId.equals(s.draft.ownerId)))
+            if (!ownerId.equals(s.ownerId) || (s.draft != null && s.draft.ownerId != null && !ownerId.equals(s.draft.ownerId))
+                    || (s.transaction != null && !ownerId.equals(s.transaction.ownerId)))
                 throw new Backend.Failure("LOGIN_REQUIRED");
             return true;
         } catch (Backend.Failure failure) {
+            if (s.node.startsWith("TX_")) s.afterLogin = s.node;
             s.clearAuthentication(); s.resumeAfterLogin = s.draft != null; router.go(s, "LOGIN_PIN"); s.error = "error.expired"; return false;
         }
     }
@@ -239,6 +259,10 @@ public class JourneyEngine {
         if (!pin.matches("[0-9]{6}")) { s.error = "error.pinFormat"; return; }
         try {
             authenticate(s, backend.login(s.mobile, pin));
+            if (s.afterLogin != null) {
+                if (s.transaction != null && !s.ownerId.equals(s.transaction.ownerId)) { s.transaction = null; s.afterLogin = null; router.go(s, "AUTH_MENU"); return; }
+                String next = s.afterLogin; s.afterLogin = null; router.go(s, next); return;
+            }
             if (s.resumeAfterLogin && s.draft != null) {
                 s.draft.ownerId = s.ownerId; save(s); s.resumeAfterLogin = false;
                 continueDraft(s);
@@ -253,6 +277,7 @@ public class JourneyEngine {
         if (!subject.equals(reply.ownerId()) || (s.draft != null && s.draft.ownerId != null && !subject.equals(s.draft.ownerId)))
             throw new Backend.Failure("LOGIN_REQUIRED");
         s.token = reply.accessToken(); s.ownerId = subject;
+        s.registered = true;
         s.tokenExpiry = Instant.now().getEpochSecond() + Math.min(reply.expiresIn(), 900);
     }
     private void submit(Session s) {

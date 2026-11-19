@@ -60,5 +60,18 @@ class RedisIntegrationTest {
             assertEquals("PONG", context.getBean(StringRedisTemplate.class).execute((org.springframework.data.redis.core.RedisCallback<String>) c -> c.ping()));
         }
     }
+    @Test void transactionRecoveryRetainsOperationButNeverPinOrJwtInTheDraft() {
+        d.backend.pins.put(d.mobile,"001234");
+        d.backend.ownedBusinesses.add(new ls.fourtax.ussd.api.Contracts.BusinessSummary("business-1","4TAX-TEST","retail","Test shop"));
+        d.start(); d.steps("1","001234","2","Synthetic goods","M100 total","paid in cash","-","1");
+        assertEquals("TX_PREVIEW",d.state().node);
+        String key="transaction:"+d.crypto.digest(d.mobile);
+        String draft=redis.opsForValue().get(key); assertNotNull(draft); assertFalse(draft.contains("001234")); assertFalse(draft.contains("owner-token"));
+        assertTrue(redis.getExpire(key)>880);
+        d.backend.loseTransactionReply=true; d.input("1"); assertEquals("TX_RETRY",d.state().node);
+        d.input("99"); d.start(); d.steps("2","001234","2","1","1");
+        assertEquals("TX_DONE",d.state().node); assertEquals(1,d.backend.postedTransactions.size()); assertTrue(redis.opsForValue().get(key).contains("posted"));
+        d.input("2"); assertNull(redis.opsForValue().get(key));
+    }
 
 }

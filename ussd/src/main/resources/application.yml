@@ -26,7 +26,7 @@ ussd:
   client-secret: ${USSD_CLIENT_SECRET}
   registration-url: ${REGISTRATION_URL:https://4tax.vercel.app}
   connect-timeout: ${BACKEND_CONNECT_TIMEOUT:5s}
-  request-timeout: ${BACKEND_REQUEST_TIMEOUT:30s}
+  request-timeout: ${BACKEND_REQUEST_TIMEOUT:60s}
 management:
   endpoints:
     web:

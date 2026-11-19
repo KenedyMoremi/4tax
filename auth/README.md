@@ -44,18 +44,19 @@ Application JWTs have audience `auth-api`, kind `application` and a five-minute 
 
 ## Owners and PINs
 
-Both endpoints require an application bearer token with the relevant scope:
+These endpoints require an application bearer token with the relevant scope:
 
 | Endpoint | Scope | Behaviour |
 | --- | --- | --- |
 | `POST /api/v1/auth/owners` | `owners:create` | Create owner credentials; requires a stable `Idempotency-Key` |
+| `POST /api/v1/auth/owners/lookup` | `owners:login` | Return only whether the normalized caller number has an auth account; no PIN or attempt-state change |
 | `POST /api/v1/auth/pin/login` | `owners:login` | Authenticate the caller number and PIN |
 
-Both accept `{"mobileNumber":"+26658123456","pin":"012345"}`. PINs are six-character numeric strings, preserving leading zeros. The caller number is normalized to international form. Auth stores a unique number, owner UUID, BCrypt PIN hash and attempt/lock state. Five failed attempts lock PIN login for 15 minutes.
+Create and login accept `{"mobileNumber":"+26658123456","pin":"012345"}`. PINs are six-character numeric strings, preserving leading zeros. The caller number is normalized to international form. Auth stores a unique number, owner UUID, BCrypt PIN hash and attempt/lock state. Five failed attempts lock PIN login for 15 minutes.
 
 Account creation is idempotent for the same operation, mobile and PIN. A changed payload is rejected; a different operation for an existing owner returns `OWNER_EXISTS` and never overwrites the PIN. Failed-login counters commit even when authentication fails.
 
-Successful account creation/login returns an owner JWT with audience `registration-api`, scope `businesses:create`, kind `owner` and a 15-minute lifetime. The subject is auth's owner UUID. No refresh token is issued. Business information and transaction records belong to the external registration system.
+Successful account creation/login returns an owner JWT with audience `registration-api`, scopes `businesses:create businesses:read transactions:create`, kind `owner` and a 15-minute lifetime. The subject is auth's owner UUID. No refresh token is issued. Business information and transaction records belong to the external registration system.
 
 Issuer metadata is at `/.well-known/oauth-authorization-server`; public signing keys are at `/oauth2/jwks`. JWTs enforce signature, issuer, audience, kind, scope and expiry. Auth API DTOs redact PINs, tokens and issued client secrets from diagnostic string output.
 
@@ -64,3 +65,5 @@ See [the OpenAPI contract](openapi.yaml) and [configuration](src/main/resources/
 ## Vercel
 
 `Dockerfile.vercel` builds this service independently. Hosted instances use a persistent secret `AUTH_SIGNING_JWK` instead of a mounted keystore. See [the multi-service deployment guide](../docs/JAVA_VERCEL.md).
+
+Owner lookup accepts `{"mobileNumber":"+26658123456"}` and returns `{"registered":true}` or false with `Cache-Control: no-store`. USSD performs it after language selection and takes existing owners directly to PIN login. A failed lookup is never treated as an unregistered number. No additional application scope or credential provisioning is needed. New owner tokens include `businesses:create businesses:read transactions:create`; existing tokens need a new PIN login to obtain the additional permissions.

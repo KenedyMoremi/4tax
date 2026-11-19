@@ -9,6 +9,10 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
     private final OwnerAuthService auth;
     public AuthController(OwnerAuthService auth) { this.auth = auth; }
+    @PostMapping("/owners/lookup")
+    ResponseEntity<OwnerStatus> lookup(@RequestBody OwnerLookup request) {
+        return ResponseEntity.ok().cacheControl(org.springframework.http.CacheControl.noStore()).body(auth.lookup(request));
+    }
     @PostMapping("/owners")
     ResponseEntity<TokenReply> create(@RequestBody PinRequest request,
             @RequestHeader(value = "Idempotency-Key", required = false) String key) {

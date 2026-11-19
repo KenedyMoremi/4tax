@@ -20,10 +20,11 @@ public class ApiTrace {
             if (method.equals("POST")) {
                 headers.put("Content-Type", stage.equals("application-token") ? "application/x-www-form-urlencoded" : "application/json");
                 headers.put("Authorization", "[redacted]");
-                if (Set.of("create-owner", "register-business").contains(stage))
+                if (Set.of("create-owner", "register-business", "transaction-webhook").contains(stage))
                     headers.put("Idempotency-Key", "[redacted: stable operation key]");
             }
             if (method.equals("GET")) headers.put("Accept", "application/json");
+            if (stage.equals("list-businesses")) headers.put("Authorization", "[redacted]");
             entries.add(new Exchange(stage, method, url, status, (System.nanoTime() - start) / 1_000_000, headers, request, response, outcome));
         }
     }

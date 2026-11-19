@@ -42,6 +42,8 @@ public class NodeRouter {
         if (session.editing) { session.editing = false; session.node = "EDIT"; return; }
         while (!session.history.isEmpty()) {
             String previous = session.history.removeLast();
+            if (previous.startsWith("TX_")) continue; // Transaction navigation has its own stage and confirmation guards.
+            if (session.registered && (previous.equals("MAIN") || previous.equals("ENTRY_RETRY"))) continue;
             if (previous.equals("COLLECTION:employees") && session.draft != null
                     && session.draft.collections.getOrDefault("employees", List.of()).isEmpty()) continue;
             if (previous.startsWith("FIELD:") && session.draft != null
@@ -50,6 +52,6 @@ public class NodeRouter {
                 session.node = previous; return;
             }
         }
-        session.node = session.token == null ? "MAIN" : "AUTH_MENU";
+        session.node = session.token == null ? (session.registered ? "LOGIN_PIN" : "MAIN") : "AUTH_MENU";
     }
 }

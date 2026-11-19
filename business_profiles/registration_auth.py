@@ -18,7 +18,7 @@ def jwks_client(url):
 
 
 @sensitive_variables()
-def authenticate_owner(request):
+def authenticate_owner(request, required_scope='businesses:create'):
     issuer, url = settings.REGISTRATION_AUTH_ISSUER, settings.REGISTRATION_AUTH_JWKS_URL
     if not issuer or not url:
         raise AuthenticationFailure(503, 'SERVICE_UNAVAILABLE')
@@ -40,6 +40,6 @@ def authenticate_owner(request):
     except (jwt.PyJWTError, ValueError, TypeError):
         raise AuthenticationFailure(401, 'INVALID_TOKEN') from None
     scope = claims.get('scope')
-    if claims.get('kind') != 'owner' or not isinstance(scope, str) or 'businesses:create' not in scope.split():
+    if claims.get('kind') != 'owner' or not isinstance(scope, str) or required_scope not in scope.split():
         raise AuthenticationFailure(403, 'FORBIDDEN')
     return issuer, owner

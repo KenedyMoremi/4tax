@@ -32,6 +32,8 @@ class HttpBackendTest {
     AtomicInteger tokenCalls = new AtomicInteger();
     int tokenStatus = 200, businessStatus = 201;
     long tokenDelay;
+    int lookupMode;
+    List<String> lookupBodies = new CopyOnWriteArrayList<>(), transactionBodies = new CopyOnWriteArrayList<>();
     @BeforeEach void setup() throws Exception {
         key = new RSAKeyGenerator(2048).keyID("test-only").generate();
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -47,6 +49,11 @@ class HttpBackendTest {
             try { Thread.sleep(tokenDelay); } catch (InterruptedException error) { Thread.currentThread().interrupt(); }
             send(e, tokenStatus, tokenStatus == 200 ? "{\"access_token\":\"private-application-token\",\"expires_in\":300}" : "{\"error\":\"invalid_client\",\"error_description\":\"do not expose\"}");
         });
+        server.createContext("/api/v1/auth/owners/lookup", e -> {
+            assertEquals("Bearer private-application-token", e.getRequestHeaders().getFirst("Authorization"));
+            lookupBodies.add(new String(e.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            send(e, 200, lookupMode == 2 ? "{}" : "{\"registered\":" + (lookupMode == 1) + "}");
+        });
         server.createContext("/api/v1/auth/owners", e -> {
             assertEquals("Bearer private-application-token", e.getRequestHeaders().getFirst("Authorization"));
             ownerBodies.add(new String(e.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
@@ -58,10 +65,24 @@ class HttpBackendTest {
         });
         server.createContext("/api/v1/businesses", e -> {
             assertEquals("Bearer " + ownerToken, e.getRequestHeaders().getFirst("Authorization"));
+            if (e.getRequestMethod().equals("GET")) {
+                assertEquals("page=2", e.getRequestURI().getQuery());
+                send(e, 200, json.writeValueAsString(new BusinessPage(List.of(new BusinessSummary("business-1", "4TAX-TEST", "retail", "Synthetic shop")), null)));
+                return;
+            }
             businessBodies.add(new String(e.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
             operationKeys.add(e.getRequestHeaders().getFirst("Idempotency-Key"));
             send(e, businessStatus, businessStatus == 201 ? "{\"entityId\":\"00000000-0000-0000-0000-000000000002\",\"reference\":\"4TAX-TEST\"}"
                     : "{\"code\":\"VALIDATION_ERROR\",\"message\":\"private response\",\"fields\":{\"details.vin\":\"private VIN\"}}");
+        });
+        server.createContext("/webhooks/twilio/whatsapp/", e -> {
+            assertEquals("Bearer " + ownerToken, e.getRequestHeaders().getFirst("Authorization"));
+            assertEquals("application/json", e.getRequestHeaders().getFirst("Content-Type"));
+            transactionBodies.add(new String(e.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            operationKeys.add(e.getRequestHeaders().getFirst("Idempotency-Key"));
+            var action = json.readTree(transactionBodies.getLast()).get("action").asText();
+            send(e, 200, json.writeValueAsString(new TransactionReply("txn-1", action.equals("propose") ? "pending" : "posted", "TESTPREVIEW1", "Private sale summary", "Recorded",
+                    new TransactionPreview("sale", "Private goods description", "2026-11-19", "200.00", "0.00", "200.00", "Private Buyer", "1000", null))));
         });
         server.start(); trace = new ApiTrace(); backend = backend(Duration.ofSeconds(5));
     }
@@ -154,5 +175,27 @@ class HttpBackendTest {
                 .audience(aud).expirationTime(Date.from(expiry)).claim("kind", kind).claim("scope", scope).build();
         var jwt = new SignedJWT(new JWSHeader.Builder(JWSAlgorithm.RS256).keyID(signingKey.getKeyID()).build(), claims);
         jwt.sign(new RSASSASigner(signingKey)); return jwt.serialize();
+    }
+    @Test void ownerLookupUsesApplicationAuthenticationAndRejectsUnknownResponses() {
+        assertFalse(backend.ownerExists("+26658123456")); lookupMode=1; assertTrue(backend.ownerExists("+26658123456"));
+        var body=json.readTree(lookupBodies.getLast()); assertEquals(1,body.size()); assertEquals("+26658123456",body.get("mobileNumber").asText());
+        lookupMode=2; assertThrows(Backend.Failure.class, () -> backend.ownerExists("+26658123456"));
+    }
+    @Test void listAndTransactionWireContractsUseOwnerJwtAndStableKeysWithRedactedTraces() {
+        try (var capture=trace.begin()) {
+            assertEquals("retail",backend.businesses(ownerToken,2).businesses().getFirst().sector());
+            var request=new TransactionRequest("USSD","propose","business-1","retail",Map.of("goods","Private goods description",
+                    "totalValue","M200 total","buyer","Private Buyer","paymentDetails","paid in cash"),"st");
+            var proposal=backend.proposeTransaction(ownerToken,request,"same-key");
+            assertEquals("pending",proposal.status()); assertEquals("200.00",proposal.preview().total());
+            backend.resolveTransaction(ownerToken,new TransactionAction("USSD","confirm","business-1",proposal.transactionId()),"same-key");
+            assertEquals("same-key",operationKeys.getLast());
+            var wire=json.readTree(transactionBodies.getFirst()); assertEquals("st",wire.get("language").asText());
+            assertEquals("Private Buyer",wire.get("fields").get("buyer").asText());
+            var confirm=json.readTree(transactionBodies.getLast()); assertEquals(4,confirm.size()); assertEquals("confirm",confirm.get("action").asText());
+            String snapshot=json.writeValueAsString(capture.exchanges());
+            for (String value:List.of(ownerToken,"Private Buyer","Private goods description","M200 total","Private sale summary")) assertFalse(snapshot.contains(value));
+            assertTrue(snapshot.contains("transaction-webhook")); assertTrue(snapshot.contains("list-businesses"));
+        }
     }
 }

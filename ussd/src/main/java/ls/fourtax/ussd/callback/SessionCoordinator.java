@@ -39,17 +39,29 @@ public class SessionCoordinator {
         }
         Session session = callback.event() == Event.START ? new Session(mobile) : store.session(key);
         if (session == null) return new Reply(messages.text("en", "error.sessionExpired"), true);
+        session.storageKey = key;
         if (callback.event() == Event.ABORT) {
             session.clearAuthentication(); store.deleteSession(key);
             return new Reply(messages.text(session.language, "goodbye"), true);
         }
         if (callback.event() == Event.INPUT) {
+            boolean transactionMoved = false;
             if (session.draft != null) {
                 Draft current = store.draft(callerKey);
                 if (current == null || !Objects.equals(current.operationId, session.draft.operationId)) engine.end(session, "error.sessionExpired");
                 else session.draft = current;
             }
-            if (!session.node.equals("END")) engine.input(session, Objects.requireNonNullElse(callback.input(), ""));
+            if (session.transaction != null && session.node.startsWith("TX_")) {
+                TransactionDraft current = store.transaction(callerKey);
+                if (current == null || !Objects.equals(current.operationId, session.transaction.operationId)) engine.end(session, "error.sessionExpired");
+                else {
+                    session.transaction = current;
+                    if (current.frozen && !session.node.equals(current.node) && !session.node.equals("TX_RESUME")) {
+                        session.node = current.node; session.page = 0; session.error = "tx.changed"; transactionMoved = true;
+                    }
+                }
+            }
+            if (!session.node.equals("END") && !transactionMoved) engine.input(session, Objects.requireNonNullElse(callback.input(), ""));
         }
         engine.enforceAccess(session);
         Reply reply = new Reply(screen.render(session), session.node.equals("END"));

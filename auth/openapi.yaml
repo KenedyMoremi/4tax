@@ -85,6 +85,33 @@ paths:
         '401': {description: Invalid application JWT}
         '403': {description: 'Missing owners:create scope'}
         '409': {description: OWNER_EXISTS or IDEMPOTENCY_CONFLICT}
+  /api/v1/auth/owners/lookup:
+    post:
+      operationId: lookupOwner
+      security: [{applicationJwt: []}]
+      description: Requires owners:login. Normalizes caller number and returns only account existence, without changing login attempts or returning owner details.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mobileNumber]
+              properties:
+                mobileNumber: {type: string}
+      responses:
+        '200':
+          description: Cache-Control no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [registered]
+                properties:
+                  registered: {type: boolean}
+        '400': {description: INVALID_MOBILE}
+        '401': {description: Invalid application JWT}
+        '403': {description: Missing owners:login scope}
   /api/v1/auth/pin/login:
     post:
       operationId: loginOwner
@@ -124,7 +151,7 @@ components:
               pin: {type: string, pattern: '^[0-9]{6}$', writeOnly: true}
   responses:
     OwnerToken:
-      description: Signed owner JWT, audience registration-api, scope businesses:create; Cache-Control no-store
+      description: Signed owner JWT, audience registration-api, scopes businesses:create businesses:read transactions:create; Cache-Control no-store
       content:
         application/json:
           schema:

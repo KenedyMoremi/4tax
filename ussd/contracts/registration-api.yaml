@@ -153,6 +153,90 @@
             }
           }
         }
+      },
+      "get": {
+        "operationId": "listOwnedBusinesses",
+        "description": "Requires businesses:read. Returns only entities matching the verified issuer and subject; does not provision ledger accounts.",
+        "security": [
+          {
+            "ownerJwt": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "At most five entities and an optional next page",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "businesses",
+                    "nextPage"
+                  ],
+                  "properties": {
+                    "businesses": {
+                      "type": "array",
+                      "maxItems": 5,
+                      "items": {
+                        "type": "object",
+                        "required": [
+                          "entityId",
+                          "reference",
+                          "sector",
+                          "businessName"
+                        ],
+                        "properties": {
+                          "entityId": {
+                            "type": "string",
+                            "format": "uuid"
+                          },
+                          "reference": {
+                            "type": "string"
+                          },
+                          "sector": {
+                            "enum": [
+                              "transport",
+                              "services",
+                              "ecommerce",
+                              "retail",
+                              "agriculture"
+                            ]
+                          },
+                          "businessName": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    },
+                    "nextPage": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid owner JWT"
+          },
+          "403": {
+            "description": "Missing businesses:read scope"
+          }
+        }
       }
     }
   },
@@ -162,7 +246,7 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "JWT",
-        "description": "RS256, configured issuer, exp/iat/sub/iss/aud required; audience registration-api; kind owner; scope businesses:create."
+        "description": "RS256, configured issuer, exp/iat/sub/iss/aud required; audience registration-api; kind owner; scope businesses:create for POST or businesses:read for GET."
       }
     },
     "schemas": {
@@ -193,13 +277,13 @@
                 "type": "string",
                 "maxLength": 250,
                 "minLength": 1,
-                "description": "Business owner’s full names"
+                "description": "Business owner\u2019s full names"
               },
               "idNumber": {
                 "type": "string",
                 "maxLength": 40,
                 "minLength": 1,
-                "description": "Owner’s national identity number"
+                "description": "Owner\u2019s national identity number"
               }
             }
           },
@@ -363,7 +447,7 @@
                   "type": "string",
                   "maxLength": 250,
                   "minLength": 1,
-                  "description": "Employee’s full names"
+                  "description": "Employee\u2019s full names"
                 },
                 "salary_range": {
                   "type": "string",
@@ -407,13 +491,13 @@
                 "type": "string",
                 "maxLength": 250,
                 "minLength": 1,
-                "description": "Business owner’s full names"
+                "description": "Business owner\u2019s full names"
               },
               "idNumber": {
                 "type": "string",
                 "maxLength": 40,
                 "minLength": 1,
-                "description": "Owner’s national identity number"
+                "description": "Owner\u2019s national identity number"
               }
             }
           },
@@ -545,7 +629,7 @@
                   "type": "string",
                   "maxLength": 250,
                   "minLength": 1,
-                  "description": "Employee’s full names"
+                  "description": "Employee\u2019s full names"
                 },
                 "salary_range": {
                   "type": "string",
@@ -589,13 +673,13 @@
                 "type": "string",
                 "maxLength": 250,
                 "minLength": 1,
-                "description": "Business owner’s full names"
+                "description": "Business owner\u2019s full names"
               },
               "idNumber": {
                 "type": "string",
                 "maxLength": 40,
                 "minLength": 1,
-                "description": "Owner’s national identity number"
+                "description": "Owner\u2019s national identity number"
               }
             }
           },
@@ -721,7 +805,7 @@
                   "type": "string",
                   "maxLength": 250,
                   "minLength": 1,
-                  "description": "Employee’s full names"
+                  "description": "Employee\u2019s full names"
                 },
                 "salary_range": {
                   "type": "string",
@@ -765,13 +849,13 @@
                 "type": "string",
                 "maxLength": 250,
                 "minLength": 1,
-                "description": "Business owner’s full names"
+                "description": "Business owner\u2019s full names"
               },
               "idNumber": {
                 "type": "string",
                 "maxLength": 40,
                 "minLength": 1,
-                "description": "Owner’s national identity number"
+                "description": "Owner\u2019s national identity number"
               }
             }
           },
@@ -886,7 +970,7 @@
                   "type": "string",
                   "maxLength": 250,
                   "minLength": 1,
-                  "description": "Employee’s full names"
+                  "description": "Employee\u2019s full names"
                 },
                 "salary_range": {
                   "type": "string",
@@ -931,13 +1015,13 @@
                 "type": "string",
                 "maxLength": 250,
                 "minLength": 1,
-                "description": "Business owner’s full names"
+                "description": "Business owner\u2019s full names"
               },
               "idNumber": {
                 "type": "string",
                 "maxLength": 40,
                 "minLength": 1,
-                "description": "Owner’s national identity number"
+                "description": "Owner\u2019s national identity number"
               }
             }
           },
@@ -1103,7 +1187,7 @@
                   "type": "string",
                   "maxLength": 250,
                   "minLength": 1,
-                  "description": "Employee’s full names"
+                  "description": "Employee\u2019s full names"
                 },
                 "salary_range": {
                   "type": "string",

@@ -10,12 +10,12 @@ public record UssdSettings(String gatewayKey, String stateSecret, int screenLimi
     public UssdSettings(String gatewayKey, String stateSecret, int screenLimit, long draftSeconds,
             String authUrl, String issuer, String jwksUrl, String clientId, String clientSecret, String registrationUrl) {
         this(gatewayKey, stateSecret, screenLimit, draftSeconds, authUrl, issuer, jwksUrl, clientId, clientSecret,
-                registrationUrl, Duration.ofSeconds(5), Duration.ofSeconds(30));
+                registrationUrl, Duration.ofSeconds(5), Duration.ofSeconds(60));
     }
     @org.springframework.boot.context.properties.bind.ConstructorBinding
     public UssdSettings {
         if (connectTimeout == null) connectTimeout = Duration.ofSeconds(5);
-        if (requestTimeout == null) requestTimeout = Duration.ofSeconds(30);
+        if (requestTimeout == null) requestTimeout = Duration.ofSeconds(60);
         if (connectTimeout.isNegative() || connectTimeout.isZero() || connectTimeout.compareTo(Duration.ofSeconds(10)) > 0
                 || requestTimeout.isNegative() || requestTimeout.isZero() || requestTimeout.compareTo(Duration.ofSeconds(60)) > 0)
             throw new IllegalArgumentException("Connect timeout must be positive and at most 10s; request timeout at most 60s");

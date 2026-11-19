@@ -38,6 +38,9 @@ public class RedisSessionStore implements SessionStore {
     @Override public Draft draft(String mobile) { return read("draft:" + mobile, Draft.class); }
     @Override public void saveDraft(String mobile, Draft value) { write("draft:" + mobile, value); }
     @Override public void deleteDraft(String mobile) { redis.delete("draft:" + mobile); }
+    @Override public TransactionDraft transaction(String mobile) { return read("transaction:" + mobile, TransactionDraft.class); }
+    @Override public void saveTransaction(String mobile, TransactionDraft value) { write("transaction:" + mobile, value); }
+    @Override public void deleteTransaction(String mobile) { redis.delete("transaction:" + mobile); }
     @Override public String cached(String key) { return redis.opsForValue().get("reply:" + key); }
     @Override public void cache(String key, String value) { redis.opsForValue().set("reply:" + key, value, ttl); }
     private <T> T read(String key, Class<T> type) {

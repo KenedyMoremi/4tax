@@ -117,7 +117,7 @@ class AuthIntegrationTest {
         String token = (String) json.readValue(login.body(), Map.class).get("accessToken");
         var decoded = NimbusJwtDecoder.withJwkSetUri(base() + "/oauth2/jwks").build().decode(token);
         assertEquals(owner.get("ownerId"), decoded.getSubject()); assertEquals(List.of("registration-api"), decoded.getAudience());
-        assertEquals("businesses:create", decoded.getClaimAsString("scope"));
+        assertEquals(Set.of("businesses:create", "businesses:read", "transactions:create"), Set.of(decoded.getClaimAsString("scope").split(" ")));
         assertEquals(900, Duration.between(decoded.getIssuedAt(), decoded.getExpiresAt()).toSeconds());
         assertEquals(401, request("/api/v1/auth/owners", body, token, UUID.randomUUID().toString()).statusCode());
         assertEquals(401, request("/api/v1/auth/pin/login", body, null, null).statusCode());
@@ -147,6 +147,22 @@ class AuthIntegrationTest {
             assertEquals(201, replies.get(0).get().statusCode()); assertEquals(201, replies.get(1).get().statusCode());
             assertEquals(1, db.queryForObject("select count(*) from owner_credentials where mobile_number = ?", Integer.class, mobile));
         }
+    }
+    @Test void lookupIsApplicationProtectedNormalizedAndDoesNotChangeLoginAttempts() throws Exception {
+        String application = applicationToken(provision()); String mobile = phone();
+        var request = new Contracts.OwnerLookup(mobile);
+        assertEquals(401, request("/api/v1/auth/owners/lookup", request, null, null).statusCode());
+        var absent = request("/api/v1/auth/owners/lookup", request, application, null);
+        assertEquals(200, absent.statusCode()); assertTrue(absent.body().contains("false"));
+        var created = request("/api/v1/auth/owners", new Contracts.PinRequest(mobile, "001234"), application, UUID.randomUUID().toString());
+        String ownerToken = (String) json.readValue(created.body(), Map.class).get("accessToken");
+        assertEquals(401, request("/api/v1/auth/owners/lookup", request, ownerToken, null).statusCode());
+        var registered = request("/api/v1/auth/owners/lookup", new Contracts.OwnerLookup(mobile.substring(4)), application, null);
+        assertEquals(200, registered.statusCode()); assertTrue(registered.body().contains("true"));
+        assertEquals("no-store", registered.headers().firstValue("Cache-Control").orElseThrow());
+        assertFalse(registered.body().contains("ownerId"));
+        assertEquals(0, db.queryForObject("select failed_attempts from owner_credentials where mobile_number = ?", Integer.class, mobile));
+        assertEquals(400, request("/api/v1/auth/owners/lookup", new Contracts.OwnerLookup("invalid"), application, null).statusCode());
     }
     @Test void rejectsWrongIssuerAudienceExpirySignatureAndScope() throws Exception {
         var body = new Contracts.PinRequest(phone(), "087431");

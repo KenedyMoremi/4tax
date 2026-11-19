@@ -21,5 +21,31 @@ public final class Contracts {
         @Override public String toString() { return "BusinessRegistration[redacted]"; }
     }
     public record RegistrationReply(String entityId, String reference) {}
+    public record OwnerLookup(String mobileNumber) {
+        @Override public String toString() { return "OwnerLookup[redacted]"; }
+    }
+    public record OwnerStatus(Boolean registered) {}
+    public record BusinessSummary(String entityId, String reference, String sector, String businessName) {
+        @Override public String toString() { return "BusinessSummary[redacted]"; }
+    }
+    public record BusinessPage(List<BusinessSummary> businesses, Integer nextPage) {
+        @Override public String toString() { return "BusinessPage[redacted]"; }
+    }
+    public record TransactionRequest(String channel, String action, String entityId, String sector, Map<String, String> fields, String language) {
+        @Override public String toString() { return "TransactionRequest[redacted]"; }
+    }
+    public record TransactionAction(String channel, String action, String entityId, String transactionId) {
+        @Override public String toString() { return "TransactionAction[redacted]"; }
+    }
+    public record TransactionPreview(String action, String description, String date, String net, String tax, String total,
+            String buyer, String paymentAccount, String dueDate) {
+        @Override public String toString() { return "TransactionPreview[redacted]"; }
+    }
+    public record TransactionReply(String transactionId, String status, String reference, String summary, String result, TransactionPreview preview) {
+        public TransactionReply(String transactionId, String status, String reference, String summary, String result) {
+            this(transactionId, status, reference, summary, result, null);
+        }
+        @Override public String toString() { return "TransactionReply[redacted]"; }
+    }
     public record ApiError(String code, String message, Map<String, String> fields) {}
 }

@@ -115,7 +115,7 @@ class RegistrationAPITests(TestCase):
 
     def test_errors_and_no_cache(self):
         self.assertEqual(self.post(key='invalid key').status_code, 400)
-        self.assertEqual(self.client.get('/api/v1/businesses').status_code, 405)
+        self.assertEqual(self.client.get('/api/v1/businesses').status_code, 401)
         self.lookup.return_value.get_signing_key_from_jwt.side_effect = jwt.PyJWKClientConnectionError('private internal detail')
         response = self.post()
         self.assertEqual(response.status_code, 503)

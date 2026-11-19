@@ -89,7 +89,7 @@ class OtherDescriptionTest {
         var details = new LinkedHashMap<>(original.details()); details.put("other_description", "Legacy irrelevant text");
         var legacy = new BusinessRegistration(original.sector(), original.owner(), details, original.employees(), original.routes(), original.livestock(), original.source());
         d.backend.saved.put(operation, legacy); session.draft.answers.put("other_description", "Legacy irrelevant text"); saveSession(d, session);
-        d.input("99"); d.start(); d.steps("1", "1", "1", "012345", "1");
+        d.input("99"); d.start(); d.steps("1", "012345", "1", "1", "1");
         assertTrue(d.last.end()); assertEquals(legacy, d.backend.saved.get(operation));
         assertEquals(d.backend.attempts.getFirst(), d.backend.attempts.getLast()); assertEquals(1, d.backend.creations);
     }

@@ -36,6 +36,11 @@ class WebhookForm(forms.Form):
 @csrf_exempt
 @require_POST
 def webhook(request):
+    if request.content_type == 'application/json' or request.headers.get('Authorization', '').lower().startswith('bearer '):
+        from business_profiles.transactions import ussd_webhook
+        response = ussd_webhook(request)
+        response['Cache-Control'] = 'no-store'
+        return response
     if not settings.WHATSAPP_ENABLED or not all([settings.TWILIO_AUTH_TOKEN, settings.TWILIO_ACCOUNT_SID, settings.TWILIO_WHATSAPP_FROM, settings.TWILIO_WEBHOOK_URL]):
         return HttpResponse(status=503)
     if len(request.body) > 32768:

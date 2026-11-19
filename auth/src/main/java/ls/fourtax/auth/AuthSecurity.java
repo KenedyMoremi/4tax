@@ -94,6 +94,7 @@ public class AuthSecurity {
                 .authorizeHttpRequests(requests -> requests
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/api/v1/clients").permitAll()
+                        .requestMatchers("/api/v1/auth/owners/lookup").hasAuthority("SCOPE_owners:login")
                         .requestMatchers("/api/v1/auth/owners").hasAuthority("SCOPE_owners:create")
                         .requestMatchers("/api/v1/auth/pin/login").hasAuthority("SCOPE_owners:login")
                         .anyRequest().denyAll())

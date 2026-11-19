@@ -53,7 +53,7 @@ paths:
                     items:
                       type: object
                       properties:
-                        stage: {enum: [application-token, create-owner, pin-login, signing-keys, verify-owner-token, register-business]}
+                        stage: {enum: [application-token, owner-lookup, create-owner, pin-login, signing-keys, verify-owner-token, list-businesses, register-business, transaction-webhook]}
                         method: {enum: [POST, GET, LOCAL]}
                         url: {type: string}
                         httpStatus: {type: integer, description: Zero for a local check or when no HTTP response arrived}

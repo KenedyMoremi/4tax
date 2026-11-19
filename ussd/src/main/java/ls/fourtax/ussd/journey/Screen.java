@@ -42,6 +42,7 @@ public class Screen {
         List<String> pages = pages(s); s.page = Math.max(0, Math.min(s.page, pages.size() - 1)); return pages.get(s.page);
     }
     private String body(Session s) {
+        if (s.node.startsWith("TX_")) return TransactionJourney.screen(s, messages);
         if (s.node.startsWith("FIELD:")) return RegistrationSchema.prompt(s.draft.sector, s.node.substring(6), s.language);
         if (s.node.startsWith("COLLECTION:")) {
             String name = s.node.substring(11);
@@ -51,6 +52,7 @@ public class Screen {
         return switch (s.node) {
             case "LANGUAGE" -> messages.text(s.language, "language");
             case "MAIN" -> messages.text(s.language, "main");
+            case "ENTRY_RETRY" -> messages.text(s.language, "entryRetry");
             case "AUTH_MENU" -> messages.text(s.language, "authenticated");
             case "SECTOR" -> messages.text(s.language, "sector");
             case "CONTACT" -> messages.text(s.language, "contact", s.mobile);

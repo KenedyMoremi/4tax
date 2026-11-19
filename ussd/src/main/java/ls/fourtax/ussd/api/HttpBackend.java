@@ -60,6 +60,40 @@ public class HttpBackend implements Backend {
                         .header("Idempotency-Key", operationId).body(new PinRequest(mobile, pin)).retrieve().toEntity(TokenReply.class),
                 HttpBackend::tokenPreview);
     }
+    @Override public boolean ownerExists(String mobile) {
+        String app = appToken();
+        OwnerStatus reply = call("owner-lookup", "POST", settings.authUrl(), "/api/v1/auth/owners/lookup", Map.of("mobileNumber", "[redacted]"),
+                () -> auth.post().uri("/api/v1/auth/owners/lookup").headers(h -> h.setBearerAuth(app))
+                        .body(new OwnerLookup(mobile)).retrieve().toEntity(OwnerStatus.class), Function.identity());
+        if (reply.registered() == null) throw new Failure("SERVICE_UNAVAILABLE");
+        return reply.registered();
+    }
+    @Override public BusinessPage businesses(String token, int page) {
+        verifyOwner(token);
+        return call("list-businesses", "GET", settings.registrationUrl(), "/api/v1/businesses?page=" + page, Map.of(),
+                () -> registration.get().uri("/api/v1/businesses?page=" + page).headers(h -> h.setBearerAuth(token))
+                        .retrieve().toEntity(BusinessPage.class), body -> Map.of("businessCount", body.businesses().size(), "nextPage", Objects.toString(body.nextPage(), "none")));
+    }
+    @Override public TransactionReply proposeTransaction(String token, TransactionRequest request, String operationId) {
+        Map<String, String> fields = new LinkedHashMap<>(); request.fields().forEach((key, value) -> fields.put(key, "[redacted]"));
+        return transaction(token, request, Map.of("channel", "USSD", "action", "propose", "entityId", request.entityId(),
+                "sector", request.sector(), "fields", fields, "language", request.language()), operationId);
+    }
+    @Override public TransactionReply resolveTransaction(String token, TransactionAction request, String operationId) {
+        return transaction(token, request, request, operationId);
+    }
+    private TransactionReply transaction(String token, Object request, Object preview, String operationId) {
+        verifyOwner(token);
+        TransactionReply reply = call("transaction-webhook", settings.registrationUrl(), "/webhooks/twilio/whatsapp/", preview,
+                () -> registration.post().uri("/webhooks/twilio/whatsapp/").headers(h -> h.setBearerAuth(token))
+                        .header("Idempotency-Key", operationId).body(request).retrieve().toEntity(TransactionReply.class),
+                body -> Map.of("transactionId", Objects.toString(body.transactionId(), ""), "status", Objects.toString(body.status(), ""),
+                        "reference", Objects.toString(body.reference(), ""), "summary", "[redacted]", "result", "[redacted]"));
+        if (reply.transactionId() == null || reply.reference() == null || reply.summary() == null
+                || reply.summary().length() > 1600 || !Set.of("pending", "posted", "cancelled").contains(Objects.toString(reply.status(), "")))
+            throw new Failure("SERVICE_UNAVAILABLE");
+        return reply;
+    }
     @Override public TokenReply login(String mobile, String pin) {
         String app = appToken();
         return call("pin-login", settings.authUrl(), "/api/v1/auth/pin/login", pinPreview(),
@@ -111,10 +145,14 @@ public class HttpBackend implements Backend {
 
     private <T> T call(String stage, String base, String path, Object preview,
             Supplier<ResponseEntity<T>> operation, Function<T, ?> sanitize) {
+        return call(stage, "POST", base, path, preview, operation, sanitize);
+    }
+    private <T> T call(String stage, String method, String base, String path, Object preview,
+            Supplier<ResponseEntity<T>> operation, Function<T, ?> sanitize) {
         long start = System.nanoTime();
         try {
             var response = operation.get(); T body = response.getBody();
-            trace.add(stage, "POST", base + path, response.getStatusCode().value(), start, preview,
+            trace.add(stage, method, base + path, response.getStatusCode().value(), start, preview,
                     body == null ? Map.of() : sanitize.apply(body), body == null ? "INVALID_RESPONSE" : "OK");
             if (body == null) throw new Failure("SERVICE_UNAVAILABLE");
             return body;
@@ -131,7 +169,7 @@ public class HttpBackend implements Backend {
                     fields = names;
                 }
             } catch (Exception ignored) { /* Arbitrary upstream bodies can contain credentials or personal data. */ }
-            trace.add(stage, "POST", base + path, error.getStatusCode().value(), start, preview,
+            trace.add(stage, method, base + path, error.getStatusCode().value(), start, preview,
                     Map.of("code", code, "invalidFields", fields), "HTTP_ERROR");
             // Login failures must retain INVALID_CREDENTIALS, rather than masquerading as expired bearer auth.
             throw new Failure(error.getStatusCode().value() == 401 && !code.equals("INVALID_CREDENTIALS") ? "LOGIN_REQUIRED" : code);
@@ -139,7 +177,7 @@ public class HttpBackend implements Backend {
             boolean timeout = false;
             for (Throwable cause = error; cause != null; cause = cause.getCause())
                 if (cause instanceof java.net.http.HttpTimeoutException || cause instanceof java.net.SocketTimeoutException) timeout = true;
-            trace.add(stage, "POST", base + path, 0, start, preview, Map.of(), timeout ? "TIMEOUT" : "CONNECTION_OR_RESPONSE_ERROR");
+            trace.add(stage, method, base + path, 0, start, preview, Map.of(), timeout ? "TIMEOUT" : "CONNECTION_OR_RESPONSE_ERROR");
             throw new Failure("SERVICE_UNAVAILABLE");
         }
     }

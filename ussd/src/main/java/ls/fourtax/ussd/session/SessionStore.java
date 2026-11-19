@@ -11,6 +11,9 @@ public interface SessionStore {
     Draft draft(String mobile);
     void saveDraft(String mobile, Draft draft);
     void deleteDraft(String mobile);
+    TransactionDraft transaction(String mobile);
+    void saveTransaction(String mobile, TransactionDraft draft);
+    void deleteTransaction(String mobile);
     String cached(String key);
     void cache(String key, String value);
 }

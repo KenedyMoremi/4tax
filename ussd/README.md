@@ -23,7 +23,7 @@ The public callback deployed on Vercel is **https://4tax-ussd.vercel.app/ussd/ca
 
 Default callback port is 8080. `.env.example` describes service-local settings. Startup automatically generates a private `.env` and obtains application credentials from auth; no manual secret creation is required. Existing local credentials are retained when auth accepts them.
 
-Outbound auth, registration and JWKS calls use `BACKEND_CONNECT_TIMEOUT=5s` and `BACKEND_REQUEST_TIMEOUT=30s` by default to accommodate prototype Vercel cold starts. Configure positive durations up to 10s and 60s respectively. The Redis processing lease exceeds the bounded submission calls so a slow request cannot lose its lock after 30 seconds. These prototype budgets must be checked against the chosen MNO's real session deadlines.
+Outbound auth, registration and JWKS calls use `BACKEND_CONNECT_TIMEOUT=5s` and `BACKEND_REQUEST_TIMEOUT=60s` by default to accommodate prototype Vercel cold starts and AI preview requests. Configure positive durations up to 10s and 60s respectively. The Redis processing lease exceeds the bounded submission calls so a slow request cannot lose its lock after 30 seconds. These prototype budgets must be checked against the chosen MNO's real session deadlines.
 
 ## Registration journeys
 
@@ -31,11 +31,11 @@ The five sectors are Transport, Services, E-Commerce, Retail and Agriculture. Th
 
 All sectors collect owner names, national identity number, location, monthly turnover and named employees with a separate monthly salary choice. Employee capture opens directly with the full-name prompt, followed by a monthly salary range menu. After each employee, choose Add another or Continue; Clear entries resets the unsaved employee list. Enter `-` at the name prompt to continue without adding an employee. Route and livestock collection menus support Add another / Continue / Clear entries. Transport starts with Taxi/Cab/Catch-a-ride before details. The Other description is shown and required only when Other is selected in E-Commerce, Retail or Agriculture; listed types skip it in registration, review and editing. Agriculture separately captures farmland count and size/unit. Exact decimal amounts are strings, and ranges use stable categorical keys. Existing registered entities are not overwritten.
 
-Choose English or Sesotho, then Register business or Login. A new owner completes business details, review/edit, PIN creation and confirmation. With an application JWT cached or obtained first, USSD calls auth to create the account and obtain an owner JWT, then calls the external API to create the entity. The PIN is sent only to auth.
+Choose English or Sesotho. USSD checks the caller number with auth: existing owners go straight to PIN login, while new owners see Register business and Login. If the lookup fails, Retry/Login is shown without assuming the number is unregistered. A new owner completes business details, review/edit, PIN creation and confirmation. With an application JWT cached or obtained first, USSD calls auth to create the account and obtain an owner JWT, then calls the external API to create the entity. The PIN is sent only to auth.
 
-Existing owners log in using the MNO-supplied caller number and PIN. Their post-login menu offers **Add business**, reusing the same sector flows without PIN creation.
+Existing owners log in using the MNO-supplied caller number and PIN. Their post-login menu offers **Add business** and **Add transaction**. Add business reuses the same sector flows without PIN creation.
 
-Viewing, editing existing registered entities and recording transactions are deferred. Editing during registration is available from review.
+Editing existing registered entities remains deferred. The authenticated menu offers Add business and Add transaction. Editing during registration is available from review.
 
 - `0`: Back; `99`: Exit.
 - `88` / `87`: Next/previous page on multi-page screens.
@@ -79,3 +79,23 @@ See [USSD OpenAPI](openapi.yaml), [the external registration contract](contracts
 `Dockerfile.vercel` builds this service independently. Hosted sessions use the injected TLS `REDIS_URL`. `https://example.com` is treated as a disabled registration placeholder and receives no business data. See [the multi-service deployment guide](../docs/JAVA_VERCEL.md).
 
 `python3 scripts/smoke-test.py` checks public service metadata and START/language/menu/ABORT callbacks. It does not create owners or business records. Complete registration journeys are tested with the in-memory backend in Maven tests and disposable databases in Django tests.
+
+## Add transaction
+
+After PIN login, choose **2. Add transaction**. The owner-authenticated business list comes from `GET /api/v1/businesses`; five results are returned per page. One business is selected automatically, while multiple entities require a selection. Business sectors are derived from saved registrations, not entered by the caller. An owner with no business can return to Add business.
+
+All transaction inputs are free text:
+
+| Sector | Fields |
+| --- | --- |
+| Transport | Routes, passenger count, fare cost (state per passenger or total) |
+| Services | Service offered and service cost |
+| E-Commerce, Retail, Agriculture | Goods sold summary and total sale value |
+
+Each flow also asks for payment details (paid/unpaid, cash/bank/M-Pesa/EcoCash, due date if unpaid) and optional buyer details (`-` becomes `N/A`). Paid sales can use N/A. Unpaid invoices require an identifiable buyer and due date; the service never invents a payment account. Currency is explicit Maloti in the price prompts. Navigation codes remain reserved: use text such as `M99`, `99.00` or `099 passengers` when necessary.
+
+Review/edit the captured text, then create an AI preview. USSD sends JSON with the owner JWT and a stable `Idempotency-Key` to `https://4tax.vercel.app/webhooks/twilio/whatsapp/`. It uses the authenticated USSD adapter, not a forged Twilio message. The API uses the existing bookkeeping AI, validation and posting functions. It returns a structured preview so fixed screen labels can be localized. **Only Confirm and post writes financial entries.** Cancel posts nothing. Unclear or incomplete instructions return for editing; AI outages and unknown responses retain the original operation for retry.
+
+Transaction drafts are retained in Redis for 15 minutes. Ending a call removes authenticated session context; after PIN login, Add transaction offers Resume. Ambiguous submissions cannot be discarded into a new operation. Stale callbacks cannot act as confirmation of a preview that was not shown in that session. Confirmations are independently idempotent in the external API. A posted receipt is retained until acknowledged (within the same 15-minute TTL), so losing the final success screen does not immediately start another sale.
+
+The emulator inspector shows owner-lookup, list-businesses and transaction-webhook entries. Transaction field values and proposal summaries are redacted in diagnostics. The API contract is local to this service at [transaction-api.yaml](contracts/transaction-api.yaml); the Django producer documents its adapter separately in [whatsapp/USSD.md](../whatsapp/USSD.md).

@@ -1,6 +1,7 @@
 package ls.fourtax.ussd.journey;
 
 import java.util.*;
+import ls.fourtax.ussd.api.Contracts.*;
 
 public final class State {
     private State() {}
@@ -18,12 +19,33 @@ public final class State {
         public String pinNonce;
         public boolean editing;
         public boolean resumeAfterLogin;
+        public boolean registered;
+        public List<BusinessSummary> businesses = new ArrayList<>();
+        public int businessPage = 1;
+        public Integer nextBusinessPage;
+        public TransactionDraft transaction;
+        public String afterLogin;
+        public String transactionResult;
         public List<String> history = new ArrayList<>();
         public Draft draft;
+        @com.fasterxml.jackson.annotation.JsonIgnore
+        public String storageKey;
         public Session() {}
         public Session(String mobile) { this.mobile = mobile; }
         public void clearAuthentication() { token = null; ownerId = null; tokenExpiry = 0; clearPin(); }
         public void clearPin() { pinDigest = null; pinNonce = null; }
+    }
+    public static final class TransactionDraft {
+        public String operationId = UUID.randomUUID().toString();
+        public String ownerId;
+        public BusinessSummary business;
+        public String language;
+        public Map<String, String> fields = new LinkedHashMap<>();
+        public boolean editing;
+        public boolean frozen;
+        public String action = "propose";
+        public String node = "TX_REVIEW";
+        public TransactionReply proposal;
     }
     public static final class Draft {
         public int schemaVersion = 2;

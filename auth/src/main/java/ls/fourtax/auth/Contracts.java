@@ -14,6 +14,10 @@ public final class Contracts {
     public record ApiError(String code, String message, Map<String, String> fields) {
         public ApiError(String code, String message) { this(code, message, Map.of()); }
     }
+    public record OwnerLookup(String mobileNumber) {
+        @Override public String toString() { return "OwnerLookup[redacted]"; }
+    }
+    public record OwnerStatus(boolean registered) {}
     public record ClientRequest(String applicationName, Set<String> scopes) {}
     public record ClientReply(String clientId, String clientSecret, String tokenEndpoint, Set<String> scopes) {
         @Override public String toString() { return "ClientReply[redacted]"; }

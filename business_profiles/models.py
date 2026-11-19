@@ -42,3 +42,24 @@ class USSDRegistration(models.Model):
     @property
     def reference(self):
         return f'4TAX-{self.id.hex.upper()}'
+
+
+class USSDLedger(models.Model):
+    """Explicit mapping; never infer web-account ownership from a phone or national ID."""
+    registration = models.OneToOneField(USSDRegistration, on_delete=models.PROTECT)
+    business = models.OneToOneField('books.Business', on_delete=models.PROTECT)
+
+
+class USSDTransaction(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    registration = models.ForeignKey(USSDRegistration, on_delete=models.PROTECT)
+    idempotency_key = models.CharField(max_length=128)
+    payload = models.JSONField()
+    status = models.CharField(max_length=12, default='processing', choices=[(v, v) for v in
+                            ['processing', 'pending', 'posted', 'cancelled', 'clarify', 'failed']])
+    proposal = models.OneToOneField('books.RecordProposal', on_delete=models.PROTECT, null=True)
+    claim_token = models.UUIDField(default=uuid.uuid4)
+    lease_until = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['registration', 'idempotency_key'], name='unique_ussd_transaction_retry')]

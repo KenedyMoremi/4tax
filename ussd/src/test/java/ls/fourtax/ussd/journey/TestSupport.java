@@ -25,6 +25,9 @@ public final class TestSupport {
         @Override public Draft draft(String mobile) { return get("draft:" + mobile, Draft.class); }
         @Override public void saveDraft(String mobile, Draft draft) { put("draft:" + mobile, draft); }
         @Override public void deleteDraft(String mobile) { values.remove("draft:" + mobile); }
+        @Override public TransactionDraft transaction(String mobile) { return get("transaction:"+mobile, TransactionDraft.class); }
+        @Override public void saveTransaction(String mobile, TransactionDraft value) { put("transaction:"+mobile, value); }
+        @Override public void deleteTransaction(String mobile) { values.remove("transaction:"+mobile); }
         @Override public String cached(String key) { return values.get("reply:" + key); }
         @Override public void cache(String key, String value) { values.put("reply:" + key, value); }
         private <T> T get(String key, Class<T> type) {
@@ -40,7 +43,35 @@ public final class TestSupport {
         public String failure;
         public final List<String> attempts = new ArrayList<>();
         public final Map<String, BusinessRegistration> saved = new LinkedHashMap<>();
+        public final List<BusinessSummary> ownedBusinesses = new ArrayList<>();
+        public final Map<String, TransactionRequest> transactionRequests = new LinkedHashMap<>();
+        public final List<String> transactionAttempts = new ArrayList<>();
+        public final Set<String> postedTransactions = new HashSet<>();
+        public String lookupFailure;
+        public String transactionFailure;
+        public boolean loseTransactionReply;
         final Map<String, String> pins = new HashMap<>();
+        @Override public boolean ownerExists(String mobile) { if (lookupFailure != null) throw new Failure(lookupFailure); return pins.containsKey(mobile); }
+        @Override public BusinessPage businesses(String token, int page) {
+            int from = Math.min((page-1)*5, ownedBusinesses.size()), end = Math.min(from+5, ownedBusinesses.size());
+            return new BusinessPage(new ArrayList<>(ownedBusinesses.subList(from,end)), end < ownedBusinesses.size() ? page+1 : null);
+        }
+        @Override public TransactionReply proposeTransaction(String token, TransactionRequest request, String key) {
+            transactionAttempts.add(key);
+            if (transactionFailure != null) throw new Failure(transactionFailure);
+            var previous = transactionRequests.putIfAbsent(key, request);
+            if (previous != null && !previous.equals(request)) throw new Failure("IDEMPOTENCY_CONFLICT");
+            if (loseTransactionReply) { loseTransactionReply = false; throw new Failure("SERVICE_UNAVAILABLE"); }
+            return new TransactionReply("txn-1", "pending", "TESTPREVIEW1", "Paid sale\nDate: 2026-11-19\nGoods\nTotal: M 200.00\nPayment account: Cash", "",
+                    new TransactionPreview("sale", "Goods", "2026-11-19", "200.00", "0.00", "200.00", "N/A", "1000", null));
+        }
+        @Override public TransactionReply resolveTransaction(String token, TransactionAction request, String key) {
+            transactionAttempts.add(key);
+            if (transactionFailure != null) throw new Failure(transactionFailure);
+            if (request.action().equals("confirm")) postedTransactions.add(key);
+            if (loseTransactionReply) { loseTransactionReply = false; throw new Failure("SERVICE_UNAVAILABLE"); }
+            return new TransactionReply("txn-1", request.action().equals("confirm") ? "posted" : "cancelled", "TESTPREVIEW1", "Sale", "Recorded");
+        }
         @Override public TokenReply createOwner(String mobile, String pin, String key) {
             if (pins.containsKey(mobile)) throw new Failure("OWNER_EXISTS");
             pins.put(mobile, pin); creations++; return token();
