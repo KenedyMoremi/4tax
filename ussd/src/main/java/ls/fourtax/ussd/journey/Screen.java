@@ -27,8 +27,9 @@ public class Screen {
         while (!rest.isEmpty()) {
             int end = Math.min(capacity, rest.length());
             if (end < rest.length()) {
-                int boundary = Math.max(rest.lastIndexOf('\n', end), rest.lastIndexOf(' ', end));
-                if (boundary > capacity / 2) end = boundary;
+                int boundary = rest.lastIndexOf('\n', end);
+                if (boundary < 1) boundary = rest.lastIndexOf(' ', end);
+                if (boundary > 0) end = boundary;
             }
             chunks.add(rest.substring(0, end)); rest = rest.substring(end).stripLeading();
         }
@@ -76,12 +77,23 @@ public class Screen {
     private String review(Session s) {
         var text = new StringBuilder(messages.text(s.language, "review"));
         for (String field : router.fields(s.draft.sector)) {
-            String value = s.draft.answers.getOrDefault(field, messages.text(s.language, "omitted"));
-            if (field.equals("days") && s.draft.answers.containsKey(field)) {
-                value = String.join(", ", Arrays.stream(value.split(",")).map(day -> messages.text(s.language, "day." + day)).toList());
+            text.append("\n").append(RegistrationSchema.label(s.draft.sector, field, s.language)).append(": ");
+            var group = RegistrationSchema.group(s.draft.sector, field);
+            if (group == null) text.append(RegistrationSchema.display(s.draft.sector, field, s.draft.answers.get(field), s.language));
+            else {
+                var rows = s.draft.collections.getOrDefault(field, List.of());
+                if (rows.isEmpty()) text.append("0");
+                for (int i = 0; i < rows.size(); i++) {
+                    text.append("\n").append(i + 1).append(". ");
+                    var values = new ArrayList<String>();
+                    for (var item : group.get("fields")) {
+                        String key = item.get("name").asText();
+                        values.add(RegistrationSchema.label(s.draft.sector, field + "." + key, s.language) + ": "
+                                + RegistrationSchema.display(s.draft.sector, field + "." + key, rows.get(i).get(key), s.language));
+                    }
+                    text.append(String.join(" / ", values));
+                }
             }
-            if (s.draft.collections.containsKey(field)) value = s.draft.collections.get(field).toString();
-            text.append("\n").append(RegistrationSchema.label(s.draft.sector, field, s.language)).append(": ").append(value);
         }
         return text.append("\n").append(messages.text(s.language, "reviewActions")).toString();
     }

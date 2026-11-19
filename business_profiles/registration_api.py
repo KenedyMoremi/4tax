@@ -105,7 +105,7 @@ def registration_options(request):
         result = {'name': name, 'label': str(field.label or name), 'type': kind, 'required': field.required}
         if hasattr(field, 'choices'):
             result['choices'] = [{'value': value, 'label': str(label)} for value, label in field.choices if value != '']
-        for attr in ('min_value', 'max_value', 'max_length', 'decimal_places'):
+        for attr in ('min_value', 'max_value', 'max_length', 'decimal_places', 'max_digits'):
             value = getattr(field, attr, None)
             if value is not None:
                 result[attr] = str(value)

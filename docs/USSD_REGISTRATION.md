@@ -41,7 +41,7 @@ Agriculture requires `livestock: [{"animal_type":"Sheep","number":5}]` (or `[]` 
 
 Collections accept at most 50 rows. Send `employees: []` when there are no employees. USSD asks for each employee's name, then a salary menu, then offers Add another / Continue. Routes and livestock also repeat. Clear entries resets only that unsaved collection. Numeric zero is entered as `00` in USSD because `0` means Back.
 
-Price/turnover bands: `100_499`, `500_999`, `1000_9999`, `10000_49999`, `50000_plus`. Monthly salary bands: `500_999`, `1000_9999`, `10000_19999`, `20000_plus`. Upper bands include M50,000 and M20,000 respectively. Ranges are categorical values, never converted to estimated amounts or ledger entries.
+Price/turnover bands: `below_100`, `100_499`, `500_999`, `1000_9999`, `10000_49999`, `50000_plus`. Monthly salary bands: `below_500`, `500_999`, `1000_9999`, `10000_19999`, `20000_plus`. Upper bands include M50,000 and M20,000 respectively. Ranges are categorical values, never converted to estimated amounts or ledger entries.
 
 Errors have `{code, message, fields}`. Invalid JSON/key returns 400; invalid/missing JWT 401; missing owner kind/scope 403; changed payload for an existing retry key 409; invalid fields 422; oversized payload 413; wrong media type 415; unavailable keys/database or disabled configuration 503. Keep a stable key and payload across timeouts/5xx; do not start a new operation until the original result is resolved. Validation errors do not consume the key. The database uniqueness constraint scopes retries by verified issuer, owner subject and key.
 
@@ -56,7 +56,7 @@ Existing web profiles are not rewritten by the migration. When their owner saves
 1. Install requirements and run checks against a disposable test database.
 2. After production database approval, apply `business_profiles.0002_ussdregistration` on Neon. It only adds the registration table and retry constraint.
 3. Configure Django `REGISTRATION_AUTH_ISSUER=https://4tax-auth.vercel.app` and `REGISTRATION_AUTH_JWKS_URL=https://4tax-auth.vercel.app/oauth2/jwks`. These are public URLs; no auth private signing key is copied. Empty settings disable writes with 503.
-4. Deploy Django and the updated USSD client together, then set USSD `REGISTRATION_URL=https://4tax.vercel.app` and redeploy USSD. The old three-sector client and development mock use an incompatible contract; do not connect them to the new API. Old unfinished drafts must be discarded explicitly. No live configuration is changed by these files.
+4. Deploy Django and the updated USSD client together, then set USSD `REGISTRATION_URL=https://4tax.vercel.app` and redeploy USSD. The registration mock has been removed. Use the real API and its trusted hosted auth issuer. Old unfinished drafts must be discarded explicitly. Source defaults point to the hosted APIs; environment values configured on Vercel still take precedence.
 5. Use an approved test identity for an end-to-end registration; do not run synthetic registration scripts against production without approval.
 
 `python manage.py export_registration_schema` updates the checked-in Java menu resource from Django form metadata. `--check` checks for drift in CI. USSD does not fetch metadata on each screen, avoiding another network dependency in a short callback. Java auth remains responsible for PINs; PINs and bearer tokens are never included in registration payloads.

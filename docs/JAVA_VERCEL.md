@@ -28,7 +28,7 @@ A free Upstash Redis resource (`4tax-ussd-sessions`) is connected only to **4tax
 
 Configure `AUTH_URL` and `AUTH_ISSUER` to the auth production URL, `AUTH_JWKS_URL` to that URL plus `/oauth2/jwks`, and save the application's issued `USSD_CLIENT_ID` and `USSD_CLIENT_SECRET` as production secrets. Generate independent `GATEWAY_KEY` and `STATE_SECRET` values. Do not publish them in emulator HTML or `/api/emulator/config`.
 
-`REGISTRATION_URL=https://example.com` is an explicit placeholder. The application refuses to send business records or owner tokens to that host and returns a service-unavailable outcome. Menu navigation and login are available, but business registration cannot finish until a real compatible API is configured. No registration mock is deployed. The real API must accept `POST /api/v1/businesses`, validate the auth issuer/JWKS, audience `registration-api`, scope `businesses:create`, and honor `Idempotency-Key` (see `ussd/contracts/registration-api.yaml`).
+Set `REGISTRATION_URL=https://4tax.vercel.app`. The Django service accepts `POST /api/v1/businesses` and exposes public metadata at `/api/v1/registration/options`. It validates owner JWTs issued by `https://4tax-auth.vercel.app`, including audience `registration-api` and scope `businesses:create`, and honors `Idempotency-Key`. There is no registration mock. Update this production environment value if it still contains `https://example.com`, then redeploy USSD. The application continues to reject that placeholder rather than sending credentials there. The interface is documented in `ussd/contracts/registration-api.yaml`.
 
 ## Emulator
 

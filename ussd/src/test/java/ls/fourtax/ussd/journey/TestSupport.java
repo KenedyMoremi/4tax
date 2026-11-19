@@ -12,7 +12,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 public final class TestSupport {
     public static UssdSettings settings() { return new UssdSettings("gateway-key-for-tests-123456789", "state-secret-for-tests-123456789012345", 160, 900,
-            "http://localhost:9000", "http://localhost:9000", "http://localhost:9000/oauth2/jwks", "test", "test", "http://localhost:8081"); }
+            "http://localhost:9000", "http://localhost:9000", "http://localhost:9000/oauth2/jwks", "test", "test", "https://registration.example.test"); }
     public static class MemoryStore implements SessionStore {
         final Map<String, String> values = new HashMap<>();
         final Map<String, Long> expiry = new HashMap<>();
@@ -95,7 +95,7 @@ public final class TestSupport {
                 if (node.startsWith("COLLECTION:")) {
                     String group = node.substring(11);
                     int minimum = RegistrationSchema.group(state().draft.sector, group).get("minimum").asInt();
-                    input(state().draft.collections.getOrDefault(group, List.of()).size() < minimum ? "1" : "2");
+                    input(state().draft.collections.getOrDefault(group, List.of()).size() < Math.max(minimum, 2) ? "1" : "2");
                 } else if (node.startsWith("FIELD:")) {
                     String name = node.substring(6);
                     var field = RegistrationSchema.field(state().draft.sector, name);
@@ -107,6 +107,9 @@ public final class TestSupport {
                         case "location", "routes.origin" -> "Maseru";
                         case "routes.destination" -> "Roma";
                         case "routes.price" -> "25.50";
+                        case "employees.name" -> "Synthetic Employee";
+                        case "livestock.animal_type" -> "Cattle";
+                        case "livestock.number" -> "12";
                         case "opens_at" -> "08:00";
                         case "closes_at" -> "17:00";
                         case "overnight" -> "2";

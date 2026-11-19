@@ -49,4 +49,16 @@ class RedisIntegrationTest {
         redis.expire("draft:" + d.crypto.digest(d.mobile), Duration.ofMillis(10)); Thread.sleep(40);
         d.input("invalid"); assertTrue(d.last.end()); assertNull(d.store.draft(d.crypto.digest(d.mobile)));
     }
+    @Test void applicationStartsWithHostAndPortWhenRedisUrlIsAbsent() {
+        var application = new org.springframework.boot.SpringApplication(ls.fourtax.ussd.UssdApplication.class);
+        try (var context = application.run("--server.port=0", "--spring.data.redis.host=" + REDIS.getHost(),
+                "--spring.data.redis.port=" + REDIS.getMappedPort(6379), "--spring.data.redis.password=",
+                "--ussd.gateway-key=" + settings().gatewayKey(), "--ussd.state-secret=" + settings().stateSecret(),
+                "--ussd.auth-url=https://auth.example.test", "--ussd.issuer=https://auth.example.test",
+                "--ussd.jwks-url=https://auth.example.test/oauth2/jwks", "--ussd.client-id=test", "--ussd.client-secret=test",
+                "--ussd.registration-url=https://registration.example.test")) {
+            assertEquals("PONG", context.getBean(StringRedisTemplate.class).execute((org.springframework.data.redis.core.RedisCallback<String>) c -> c.ping()));
+        }
+    }
+
 }

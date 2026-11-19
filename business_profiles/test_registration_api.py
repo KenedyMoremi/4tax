@@ -66,6 +66,19 @@ class RegistrationAPITests(TestCase):
             self.assertLessEqual(len(response.json()['reference']), 64)
         self.assertEqual(USSDRegistration.objects.count(), 5)
 
+    def test_below_bands_are_accepted_for_all_prices_turnover_and_monthly_salaries(self):
+        for sector in ('transport', 'services', 'ecommerce', 'retail', 'agriculture'):
+            payload = self.payload(sector)
+            payload['details']['turnover_range'] = 'below_100'
+            for key in list(payload['details']):
+                if key.endswith('price_range'):
+                    payload['details'][key] = 'below_100'
+            payload['employees'][0]['salary_range'] = 'below_500'
+            response = self.post(payload, key='below-' + sector)
+            self.assertEqual(response.status_code, 201, response.content)
+            saved = USSDRegistration.objects.get(pk=response.json()['entityId'])
+            self.assertEqual(saved.payload['employees'][0]['salary_range'], 'below_500')
+
     def test_retry_and_owner_scope(self):
         original = self.post()
         self.assertEqual(self.post().status_code, 200)

@@ -32,20 +32,17 @@ Each service uses Spring Boot 4.1.2, Java 25 and its own Maven build, Compose fi
 | Service | Purpose | Local address |
 | --- | --- | --- |
 | [auth](auth/README.md) | Application credentials, client-credentials JWTs and owner PIN authentication | http://localhost:9000 |
-| [registration-mock](registration-mock/README.md) | Synthetic external registration API for development | http://localhost:8081 |
-| [ussd](ussd/README.md) | Transport, wellness and vendor journeys in English and Sesotho | http://localhost:8080 |
+| [ussd](ussd/README.md) | Transport, Services, E-Commerce, Retail and Agriculture journeys in English and Sesotho | http://localhost:8080 |
 | [ussd-emulator](ussd-emulator/README.md) | Browser handset, Vodacom test identities and callback inspection | http://localhost:8090 |
 
-With Java 25, Maven, Docker/Compose and Python 3 available, start them from the repository directory in this order:
+With Java 25, Maven, Docker/Compose and Python 3 available, start local USSD and the emulator from the repository directory. They use the hosted auth and registration APIs by default:
 
 ```sh
-./auth/scripts/dev-up.sh
-./registration-mock/scripts/dev-up.sh
 ./ussd/scripts/dev-up.sh
 ./ussd-emulator/scripts/dev-up.sh
 ```
 
-The startup scripts generate private service-local `.env` files and signing keys automatically, so no manual secret creation is required. USSD validates its saved application credentials and obtains a replacement from auth when the database is fresh. `.env.example` files document the settings. The revised USSD client uses the five-sector Django registration API. The three-sector registration mock is retained only for legacy development; use the configuration in docs/USSD_REGISTRATION.md for the current client. The emulator's gateway credential field uses `GATEWAY_KEY` from `ussd/.env`.
+The startup scripts generate private service-local `.env` files automatically. USSD validates its application credentials against the configured auth service and obtains replacements when necessary. The real registration API is **https://4tax.vercel.app**, auth is **https://4tax-auth.vercel.app**, USSD is **https://4tax-ussd.vercel.app**, and the hosted emulator is **https://4tax-ussd-emulator.vercel.app**. The mock has been removed. See [the registration contract and rollout](docs/USSD_REGISTRATION.md). For local auth development, run `./auth/scripts/dev-up.sh` independently; the registration system must trust the same issuer used by USSD. The local emulator's gateway credential is `GATEWAY_KEY` from `ussd/.env`.
 
 Routes and URL names remain unchanged. `config/urls.py` owns the shared authentication/admin routes and includes `bookkeeping/urls.py` for the bookkeeping routes. The folder reorganization requires no data transfer. The optional WhatsApp integration adds its own tables and a bookkeeping proposal table through new migrations.
 

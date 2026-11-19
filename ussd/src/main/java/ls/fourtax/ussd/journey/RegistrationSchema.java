@@ -94,6 +94,14 @@ public final class RegistrationSchema {
         if (input.isBlank() || input.length() > (f.has("max_length") ? Integer.parseInt(f.get("max_length").asText()) : 250)) throw new IllegalArgumentException();
         return input;
     }
+    public static String display(String sector, String name, String value, String language) {
+        var messages = new Messages();
+        if (value == null || value.isBlank()) return messages.text(language, "omitted");
+        var field = field(sector, name);
+        if (field.get("type").asText().equals("boolean")) return messages.text(language, Boolean.parseBoolean(value) ? "registration.yes" : "registration.no");
+        if (field.has("choices")) return String.join(", ", Arrays.stream(value.split(",")).map(code -> messages.text(language, "registration.choice." + code)).toList());
+        return value;
+    }
     public static Object value(String sector, String name, String value) {
         String type = field(sector, name).get("type").asText();
         if (type.equals("boolean")) return Boolean.valueOf(value);

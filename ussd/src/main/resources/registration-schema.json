@@ -112,6 +112,10 @@
           "required": true,
           "choices": [
             {
+              "value": "below_100",
+              "label": "Below M100"
+            },
+            {
               "value": "100_499",
               "label": "M100–499"
             },
@@ -179,7 +183,8 @@
               "type": "decimal",
               "required": true,
               "min_value": "0",
-              "decimal_places": "2"
+              "decimal_places": "2",
+              "max_digits": "12"
             }
           ]
         },
@@ -206,6 +211,10 @@
               "type": "choice",
               "required": true,
               "choices": [
+                {
+                  "value": "below_500",
+                  "label": "Below M500"
+                },
                 {
                   "value": "500_999",
                   "label": "M500–999"
@@ -328,6 +337,10 @@
           "required": true,
           "choices": [
             {
+              "value": "below_100",
+              "label": "Below M100"
+            },
+            {
               "value": "100_499",
               "label": "M100–499"
             },
@@ -355,6 +368,10 @@
           "type": "choice",
           "required": true,
           "choices": [
+            {
+              "value": "below_100",
+              "label": "Below M100"
+            },
             {
               "value": "100_499",
               "label": "M100–499"
@@ -402,6 +419,10 @@
               "type": "choice",
               "required": true,
               "choices": [
+                {
+                  "value": "below_500",
+                  "label": "Below M500"
+                },
                 {
                   "value": "500_999",
                   "label": "M500–999"
@@ -462,6 +483,10 @@
           "required": true,
           "choices": [
             {
+              "value": "below_100",
+              "label": "Below M100"
+            },
+            {
               "value": "100_499",
               "label": "M100–499"
             },
@@ -497,6 +522,10 @@
           "required": true,
           "choices": [
             {
+              "value": "below_100",
+              "label": "Below M100"
+            },
+            {
               "value": "100_499",
               "label": "M100–499"
             },
@@ -525,6 +554,10 @@
           "required": true,
           "choices": [
             {
+              "value": "below_100",
+              "label": "Below M100"
+            },
+            {
               "value": "100_499",
               "label": "M100–499"
             },
@@ -552,6 +585,10 @@
           "type": "choice",
           "required": true,
           "choices": [
+            {
+              "value": "below_100",
+              "label": "Below M100"
+            },
             {
               "value": "100_499",
               "label": "M100–499"
@@ -599,6 +636,10 @@
               "type": "choice",
               "required": true,
               "choices": [
+                {
+                  "value": "below_500",
+                  "label": "Below M500"
+                },
                 {
                   "value": "500_999",
                   "label": "M500–999"
@@ -667,6 +708,10 @@
           "required": true,
           "choices": [
             {
+              "value": "below_100",
+              "label": "Below M100"
+            },
+            {
               "value": "100_499",
               "label": "M100–499"
             },
@@ -702,6 +747,10 @@
           "required": true,
           "choices": [
             {
+              "value": "below_100",
+              "label": "Below M100"
+            },
+            {
               "value": "100_499",
               "label": "M100–499"
             },
@@ -729,6 +778,10 @@
           "type": "choice",
           "required": true,
           "choices": [
+            {
+              "value": "below_100",
+              "label": "Below M100"
+            },
             {
               "value": "100_499",
               "label": "M100–499"
@@ -776,6 +829,10 @@
               "type": "choice",
               "required": true,
               "choices": [
+                {
+                  "value": "below_500",
+                  "label": "Below M500"
+                },
                 {
                   "value": "500_999",
                   "label": "M500–999"
@@ -836,6 +893,10 @@
           "required": true,
           "choices": [
             {
+              "value": "below_100",
+              "label": "Below M100"
+            },
+            {
               "value": "100_499",
               "label": "M100–499"
             },
@@ -870,6 +931,10 @@
           "type": "choice",
           "required": true,
           "choices": [
+            {
+              "value": "below_100",
+              "label": "Below M100"
+            },
             {
               "value": "100_499",
               "label": "M100–499"
@@ -906,7 +971,8 @@
           "type": "decimal",
           "required": true,
           "min_value": "0",
-          "decimal_places": "4"
+          "decimal_places": "4",
+          "max_digits": "12"
         },
         {
           "name": "farmland_unit",
@@ -980,6 +1046,10 @@
               "type": "choice",
               "required": true,
               "choices": [
+                {
+                  "value": "below_500",
+                  "label": "Below M500"
+                },
                 {
                   "value": "500_999",
                   "label": "M500–999"

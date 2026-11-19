@@ -267,6 +267,7 @@
               "turnover_range": {
                 "type": "string",
                 "enum": [
+                  "below_100",
                   "100_499",
                   "500_999",
                   "1000_9999",
@@ -367,6 +368,7 @@
                 "salary_range": {
                   "type": "string",
                   "enum": [
+                    "below_500",
                     "500_999",
                     "1000_9999",
                     "10000_19999",
@@ -480,6 +482,7 @@
               "turnover_range": {
                 "type": "string",
                 "enum": [
+                  "below_100",
                   "100_499",
                   "500_999",
                   "1000_9999",
@@ -491,6 +494,7 @@
               "service_price_range": {
                 "type": "string",
                 "enum": [
+                  "below_100",
                   "100_499",
                   "500_999",
                   "1000_9999",
@@ -546,6 +550,7 @@
                 "salary_range": {
                   "type": "string",
                   "enum": [
+                    "below_500",
                     "500_999",
                     "1000_9999",
                     "10000_19999",
@@ -624,6 +629,7 @@
               "turnover_range": {
                 "type": "string",
                 "enum": [
+                  "below_100",
                   "100_499",
                   "500_999",
                   "1000_9999",
@@ -640,6 +646,7 @@
               "purchase_price_range": {
                 "type": "string",
                 "enum": [
+                  "below_100",
                   "100_499",
                   "500_999",
                   "1000_9999",
@@ -651,6 +658,7 @@
               "selling_price_range": {
                 "type": "string",
                 "enum": [
+                  "below_100",
                   "100_499",
                   "500_999",
                   "1000_9999",
@@ -662,6 +670,7 @@
               "shipping_price_range": {
                 "type": "string",
                 "enum": [
+                  "below_100",
                   "100_499",
                   "500_999",
                   "1000_9999",
@@ -717,6 +726,7 @@
                 "salary_range": {
                   "type": "string",
                   "enum": [
+                    "below_500",
                     "500_999",
                     "1000_9999",
                     "10000_19999",
@@ -796,6 +806,7 @@
               "turnover_range": {
                 "type": "string",
                 "enum": [
+                  "below_100",
                   "100_499",
                   "500_999",
                   "1000_9999",
@@ -812,6 +823,7 @@
               "purchase_price_range": {
                 "type": "string",
                 "enum": [
+                  "below_100",
                   "100_499",
                   "500_999",
                   "1000_9999",
@@ -823,6 +835,7 @@
               "selling_price_range": {
                 "type": "string",
                 "enum": [
+                  "below_100",
                   "100_499",
                   "500_999",
                   "1000_9999",
@@ -878,6 +891,7 @@
                 "salary_range": {
                   "type": "string",
                   "enum": [
+                    "below_500",
                     "500_999",
                     "1000_9999",
                     "10000_19999",
@@ -958,6 +972,7 @@
               "turnover_range": {
                 "type": "string",
                 "enum": [
+                  "below_100",
                   "100_499",
                   "500_999",
                   "1000_9999",
@@ -974,6 +989,7 @@
               "selling_price_range": {
                 "type": "string",
                 "enum": [
+                  "below_100",
                   "100_499",
                   "500_999",
                   "1000_9999",
@@ -1092,6 +1108,7 @@
                 "salary_range": {
                   "type": "string",
                   "enum": [
+                    "below_500",
                     "500_999",
                     "1000_9999",
                     "10000_19999",

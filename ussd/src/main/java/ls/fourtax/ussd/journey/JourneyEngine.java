@@ -34,7 +34,7 @@ public class JourneyEngine {
         if (count > 1 && (input.equals("88") || input.equals("87"))) {
             s.page = Math.max(0, Math.min(count - 1, s.page + (input.equals("88") ? 1 : -1))); return;
         }
-        s.error = null;
+        s.error = null; s.page = 0;
         if (s.node.startsWith("COLLECTION:")) { collection(s, s.node.substring(11), input); return; }
         if (s.node.startsWith("FIELD:")) { field(s, s.node.substring(6), input); return; }
         switch (s.node) {
@@ -203,7 +203,7 @@ public class JourneyEngine {
             authenticate(s, backend.login(s.mobile, pin));
             if (s.resumeAfterLogin && s.draft != null) {
                 s.draft.ownerId = s.ownerId; save(s); s.resumeAfterLogin = false;
-                router.go(s, s.draft.sector == null ? "SECTOR" : "REVIEW");
+                continueDraft(s);
             } else { s.draft = null; router.go(s, "AUTH_MENU"); }
         } catch (Backend.Failure failure) {
             s.error = failure.code.equals("PIN_LOCKED") ? "error.locked"
@@ -229,11 +229,11 @@ public class JourneyEngine {
             if (failure.code.equals("LOGIN_REQUIRED")) {
                 s.clearAuthentication(); s.resumeAfterLogin = true; router.go(s, "LOGIN_PIN"); s.error = "error.expired";
             } else {
-                if (failure.code.equals("VALIDATION_ERROR") || failure.code.equals("CONFLICT")) {
+                if (failure.code.equals("VALIDATION_ERROR") || failure.code.equals("CONFLICT") || failure.code.equals("PAYLOAD_TOO_LARGE")) {
                     s.draft.mayHaveSubmitted = false; save(s);
                 }
                 router.go(s, "RETRY");
-                s.error = failure.code.equals("VALIDATION_ERROR") ? "error.validation"
+                s.error = failure.code.equals("PAYLOAD_TOO_LARGE") ? "error.payloadTooLarge" : failure.code.equals("VALIDATION_ERROR") ? "error.validation"
                         : failure.code.equals("CONFLICT") || failure.code.equals("IDEMPOTENCY_CONFLICT") ? "error.conflict" : "error.unavailable";
             }
         }

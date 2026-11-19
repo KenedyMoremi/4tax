@@ -63,7 +63,7 @@ See [OpenAPI](openapi.yaml). No database, Redis or OAuth application credentials
 
 `mvn verify` tests identity generation, XML formats and escaping, request replay, abort/timeout events, HTTP failures, redirects, response limits, stalled-body timeouts, and the web/API endpoints.
 
-With auth, USSD and the registration mock running, use `python3 scripts/smoke-test.py` for a full callback test. It prompts for the gateway key without saving it, or accepts `GATEWAY_KEY` in the process environment. It creates synthetic test owners/businesses through all three journeys. Optional `EMULATOR_URL` and `USSD_CALLBACK_URL` select other local test endpoints.
+With USSD running and connected to the hosted auth/registration services, use `python3 scripts/smoke-test.py` for callback tests. It prompts for the gateway key without saving it, or accepts `GATEWAY_KEY` in the process environment. It tests generated identities, both languages, all five sector menus, replay and recovery, then aborts before capturing personal details or creating auth/business records. Optional `EMULATOR_URL` and `USSD_CALLBACK_URL` select other local test endpoints.
 
 ## Vercel
 

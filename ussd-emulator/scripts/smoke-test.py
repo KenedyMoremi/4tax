@@ -6,6 +6,7 @@ import json
 import os
 import urllib.error
 import urllib.request
+import urllib.parse
 import uuid
 
 base = os.environ.get('EMULATOR_URL', 'http://localhost:8090').rstrip('/')
@@ -50,36 +51,26 @@ class Call:
     def confirmed(self):
         assert self.last['state'] == 'End' and 'DEMO-' in self.last['prompt'], 'Entity was not confirmed'
 
-transport = Call()
-assert transport.last['errorCode'] is None
-assert f"<imsi>{transport.subscriber['imsi']}</imsi>" in transport.last['requestXml']
-assert '<mcc>651</mcc>' in transport.last['requestXml'] and '<mnc>01</mnc>' in transport.last['requestXml']
-replay = api('exchanges', transport.last_request)
-assert replay['requestXml'] == transport.last['requestXml'] and replay['prompt'] == transport.last['prompt']
-transport.steps('1', '1', '1', 'DEMO0000000000001', 'DEMO123', '000000000001', 'Synthetic Owner', 'Maseru', '2', '1', '087431', '087431')
-transport.confirmed()
-
-returning = Call(transport.subscriber)
-returning.steps('1', '2', '087431', '1', '3', '2', 'Maseru market', '1', '000000000001', 'Synthetic Owner', '1')
-returning.confirmed()
-
-wellness = Call(identity('10'))
-assert '<mnc>10</mnc>' in wellness.last['requestXml']
-wellness.steps('2', '1', '2', '2', '62123456', '4', '1,3,5', '08:00', '17:00', 'Synthetic Salon', 'Ha Thetsane', '000000000002', 'Synthetic Owner', '1', '087431', '087431')
-wellness.confirmed()
-
-vendor = Call()
-vendor.steps('1', '1', '3', '1', 'Synthetic Vendor', 'Maseru market', '1', '000000000003', 'Synthetic Owner', '1', '087431', '087431')
-vendor.confirmed()
+initial = Call()
+assert initial.last['errorCode'] is None
+assert f"<imsi>{initial.subscriber['imsi']}</imsi>" in initial.last['requestXml']
+replay = api('exchanges', initial.last_request)
+assert replay['requestXml'] == initial.last['requestXml'] and replay['prompt'] == initial.last['prompt']
+initial.send('ABORT')
+for language in ('1', '2'):
+    for sector in ('1', '2', '3', '4', '5'):
+        call = Call(identity('10'))
+        assert '<mnc>10</mnc>' in call.last['requestXml']
+        call.steps(language, '1', sector)
+        assert call.send('ABORT')['state'] == 'End'
 
 partial = Call()
-partial.steps('1', '1', '1', 'DEMO0000000000002')
+partial.steps('1', '1', '1', '1')
 assert partial.send('ABORT')['state'] == 'End'
 resume = Call(partial.subscriber)
 resume.steps('1', '1')
 assert 'Unfinished' in resume.last['prompt']
 resume.steps('1')
-assert 'number plate' in resume.last['prompt']
 assert resume.send('TIMEOUT')['state'] == 'End'
 
 denied = Call(gateway_key='deliberately-wrong-key')
@@ -96,7 +87,9 @@ assert '<requestId>' not in without_ids.last['requestXml']
 without_ids.steps('1')
 without_ids.send('ABORT')
 
-localhost = Call(target='http://localhost:8080/ussd/callback/grapevine')
-assert localhost.last['errorCode'] is None, ('Docker localhost mapping', localhost.last['errorCode'])
-localhost.send('ABORT')
-print('PASS: three registration sectors, Add business, generated numbers/IMSIs, exact replay, resume, abort, timeout, key correction, missing request IDs and Docker localhost mapping.')
+if urllib.parse.urlparse(base).hostname in ('localhost', '127.0.0.1'):
+    localhost = Call(target='http://localhost:8080/ussd/callback/grapevine')
+    assert localhost.last['errorCode'] is None, ('Docker localhost mapping', localhost.last['errorCode'])
+    localhost.send('ABORT')
+
+print('PASS: five sector menus in both languages, generated numbers/IMSIs, replay, resume, abort, timeout, gateway authentication and Docker localhost mapping. No owners or business records created.')

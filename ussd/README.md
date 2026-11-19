@@ -15,9 +15,11 @@ docker compose down
 
 Requirements: Java 25, Maven 3.9+, Docker/Compose and Python 3. Maven tests use a real Redis Testcontainer. Unit-only execution is available with `mvn -Dtest=JourneyTest,GrapevineXmlTest test`.
 
-Start the independent [auth service](../auth/README.md) first and the Django application for business creation. Apply its migrations to a disposable development database and configure its trusted auth issuer/JWKS. The old registration mock and smoke scripts use the legacy contract and must not be used with the new journeys. Each is started using its own `scripts/dev-up.sh`. This service's script generates its own `.env`, obtains an application client ID/secret from auth's public provisioning endpoint, saves that pair locally, and starts only USSD and Redis.
+USSD uses the real registration API at **https://4tax.vercel.app** and its trusted auth issuer **https://4tax-auth.vercel.app**. There is no registration mock. The startup script generates a private service-local `.env`, validates its saved application credentials against the configured auth service and provisions replacements when needed. It starts only USSD and Redis. Owner records and business entities are created in the real services when a user confirms registration; no registrations are created by startup.
 
-All local stacks join `fourtax-development`; each startup script can create that Docker network. Legacy Compose defaults (override REGISTRATION_URL to the Django API before using these journeys) are `AUTH_URL=http://auth:9000`, `AUTH_JWKS_URL=http://auth:9000/oauth2/jwks` and `REGISTRATION_URL=http://registration-api:8081`. Host-side provisioning uses `AUTH_PUBLIC_URL=http://localhost:9000`. Replace these URLs to use separately deployed APIs. This service never reads a sibling service's environment file. Startup validates its saved client credentials with auth and automatically provisions a replacement when starting against a fresh auth database.
+Defaults are `AUTH_URL=https://4tax-auth.vercel.app`, `AUTH_ISSUER=https://4tax-auth.vercel.app`, `AUTH_JWKS_URL=https://4tax-auth.vercel.app/oauth2/jwks` and `REGISTRATION_URL=https://4tax.vercel.app`. Host-side client provisioning uses the same hosted auth URL. Startup updates the known obsolete local defaults in an existing `.env`. Custom URLs remain configurable. For an isolated development backend, configure both sides to trust the same auth issuer. This service never reads a sibling service's environment file.
+
+The public callback deployed on Vercel is **https://4tax-ussd.vercel.app/ussd/callback/grapevine**; the hosted emulator is **https://4tax-ussd-emulator.vercel.app**. Production Vercel environment variables override source defaults. Replace a production `REGISTRATION_URL=https://example.com` with the real base URL and redeploy USSD.
 
 Default callback port is 8080. `.env.example` describes service-local settings. Startup automatically generates a private `.env` and obtains application credentials from auth; no manual secret creation is required. Existing local credentials are retained when auth accepts them.
 
@@ -35,7 +37,7 @@ Viewing, editing existing registered entities and recording transactions are def
 
 - `0`: Back; `99`: Exit.
 - `88` / `87`: Next/previous page on multi-page screens.
-- Optional text accepts `-` to skip; numeric fields accept `00` for zero because `0` is Back.
+- Optional text accepts `-` to skip. Numeric values that match navigation codes can use a leading zero (for example, `00` for zero or `099` for a count of 99); exact fares can use `0.00` or `99.00`. Identity numbers remain unchanged strings.
 - Screen text defaults to a configurable 160-character limit.
 
 Every prompt, validation message and outcome has English and Sesotho wording in `src/main/resources/messages*.properties`. **Sesotho is draft copy requiring fluent-speaker review before live use.**
@@ -71,3 +73,5 @@ See [USSD OpenAPI](openapi.yaml), [the external registration contract](contracts
 ## Vercel
 
 `Dockerfile.vercel` builds this service independently. Hosted sessions use the injected TLS `REDIS_URL`. `https://example.com` is treated as a disabled registration placeholder and receives no business data. See [the multi-service deployment guide](../docs/JAVA_VERCEL.md).
+
+`python3 scripts/smoke-test.py` checks public service metadata and START/language/menu/ABORT callbacks. It does not create owners or business records. Complete registration journeys are tested with the in-memory backend in Maven tests and disposable databases in Django tests.

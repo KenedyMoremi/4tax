@@ -34,7 +34,7 @@ def wait_for(url):
         except (urllib.error.URLError, OSError, http.client.HTTPException):
             pass
         time.sleep(1)
-    raise SystemExit('Dependency not healthy. Start auth first, then inspect service-local Compose logs.')
+    raise SystemExit('Dependency not healthy. Check the configured auth URL and service health.')
 
 def client_is_registered(auth, config):
     client_id = config.get('USSD_CLIENT_ID')
@@ -57,16 +57,26 @@ def client_is_registered(auth, config):
 
 values = read()
 if sys.argv[1] == 'init':
+    legacy = {'http://auth:9000': 'https://4tax-auth.vercel.app',
+              'http://localhost:9000': 'https://4tax-auth.vercel.app',
+              'http://auth:9000/oauth2/jwks': 'https://4tax-auth.vercel.app/oauth2/jwks',
+              'http://localhost:9000/oauth2/jwks': 'https://4tax-auth.vercel.app/oauth2/jwks',
+              'http://registration-api:8081': 'https://4tax.vercel.app',
+              'http://localhost:8081': 'https://4tax.vercel.app'}
+    if values.get('REGISTRATION_URL') in ('http://registration-api:8081', 'http://localhost:8081'):
+        for key in ('AUTH_PUBLIC_URL', 'AUTH_URL', 'AUTH_ISSUER', 'AUTH_JWKS_URL', 'REGISTRATION_URL'):
+            if values.get(key) in legacy:
+                values[key] = legacy[values[key]]
     for key in ('REDIS_PASSWORD', 'GATEWAY_KEY', 'STATE_SECRET'):
         values.setdefault(key, secrets.token_urlsafe(32))
     for key, value in {'USSD_PORT': '8080', 'SPRING_PROFILES_ACTIVE': 'dev',
-                       'AUTH_PUBLIC_URL': 'http://localhost:9000', 'AUTH_URL': 'http://auth:9000',
-                       'AUTH_ISSUER': 'http://localhost:9000', 'AUTH_JWKS_URL': 'http://auth:9000/oauth2/jwks',
-                       'REGISTRATION_URL': 'http://registration-api:8081'}.items():
+                       'AUTH_PUBLIC_URL': 'https://4tax-auth.vercel.app', 'AUTH_URL': 'https://4tax-auth.vercel.app',
+                       'AUTH_ISSUER': 'https://4tax-auth.vercel.app', 'AUTH_JWKS_URL': 'https://4tax-auth.vercel.app/oauth2/jwks',
+                       'REGISTRATION_URL': 'https://4tax.vercel.app'}.items():
         values.setdefault(key, value)
     write(values)
 elif sys.argv[1] == 'provision':
-    auth = values.get('AUTH_PUBLIC_URL', 'http://localhost:9000')
+    auth = values.get('AUTH_PUBLIC_URL', 'https://4tax-auth.vercel.app')
     wait_for(auth)
     if not client_is_registered(auth, values):
         body = json.dumps({'applicationName': '4Tax USSD', 'scopes': ['owners:create', 'owners:login']}).encode()

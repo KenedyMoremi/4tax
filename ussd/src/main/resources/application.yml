@@ -7,7 +7,6 @@ spring:
     name: fourtax-ussd
   data:
     redis:
-      url: ${REDIS_URL:}
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
@@ -20,12 +19,12 @@ ussd:
   state-secret: ${STATE_SECRET}
   screen-limit: ${SCREEN_LIMIT:160}
   draft-seconds: 900
-  auth-url: ${AUTH_URL:http://localhost:9000}
-  issuer: ${AUTH_ISSUER:http://localhost:9000}
-  jwks-url: ${AUTH_JWKS_URL:http://localhost:9000/oauth2/jwks}
+  auth-url: ${AUTH_URL:https://4tax-auth.vercel.app}
+  issuer: ${AUTH_ISSUER:https://4tax-auth.vercel.app}
+  jwks-url: ${AUTH_JWKS_URL:https://4tax-auth.vercel.app/oauth2/jwks}
   client-id: ${USSD_CLIENT_ID}
   client-secret: ${USSD_CLIENT_SECRET}
-  registration-url: ${REGISTRATION_URL:http://localhost:8081}
+  registration-url: ${REGISTRATION_URL:https://4tax.vercel.app}
 management:
   endpoints:
     web:

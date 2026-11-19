@@ -21,10 +21,10 @@ class SectorForm(forms.Form):
 
 
 # Stable values are shared by web forms and the registration API.
-PRICE_RANGES = [('100_499', 'M100–499'), ('500_999', 'M500–999'),
+PRICE_RANGES = [('below_100', 'Below M100'), ('100_499', 'M100–499'), ('500_999', 'M500–999'),
                 ('1000_9999', 'M1,000–9,999'), ('10000_49999', 'M10,000–49,999'),
                 ('50000_plus', 'M50,000 and above')]
-SALARY_RANGES = [('500_999', 'M500–999'), ('1000_9999', 'M1,000–9,999'),
+SALARY_RANGES = [('below_500', 'Below M500'), ('500_999', 'M500–999'), ('1000_9999', 'M1,000–9,999'),
                  ('10000_19999', 'M10,000–19,999'), ('20000_plus', 'M20,000 and above')]
 
 
