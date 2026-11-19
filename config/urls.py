@@ -1,9 +1,10 @@
 from django.contrib import admin
 from django.contrib.auth import views as auth
 from django.urls import include, path
-from . import authentication
+from . import authentication, pwa
 
 urlpatterns = [
+    path('sw.js', pwa.service_worker, name='service_worker'),
     path('admin/', admin.site.urls),
     path('accounts/login/', auth.LoginView.as_view(), name='login'),
     path('accounts/logout/', auth.LogoutView.as_view(), name='logout'),
