@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body { @apply bg-[#f7f8fa] text-ink antialiased; font-size: 16px; }
+  button, input, select, textarea { font: inherit; }
+  input:not([type=checkbox]):not([type=hidden]), select, textarea { @apply w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-ink outline-none transition; }
+  input:focus, select:focus, textarea:focus { @apply ring-2 ring-orange-200 border-brand; }
+  input[type=checkbox] { @apply h-4 w-4 accent-brand; }
+  select { appearance: none; padding-right: 2.5rem; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='%236b7280' stroke-width='1.5'%3E%3Cpath d='m4 6 4 4 4-4'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right .8rem center; }
+  :focus-visible { @apply outline outline-2 outline-offset-4 outline-brand; }
+  h1, h2, h3 { @apply tracking-tight; }
+}
+@layer components {
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition no-underline; }
+  .btn-primary { @apply btn bg-brand text-white hover:bg-orange-700 shadow-sm; }
+  .btn-secondary { @apply btn border border-gray-200 bg-white text-gray-700 hover:bg-gray-50; }
+  .btn-danger { @apply btn border border-red-200 text-red-700 hover:bg-red-50; }
+  .panel { @apply min-w-0 rounded-xl border border-gray-200/90 bg-white shadow-sm; }
+  .page-title { @apply text-2xl sm:text-3xl font-semibold tracking-tight; }
+  .muted { @apply text-sm text-gray-500; }
+  .eyebrow { @apply text-xs uppercase tracking-widest font-semibold text-gray-400; }
+  .nav-link { @apply flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-gray-600 transition hover:bg-gray-100; }
+  .nav-link.active { @apply bg-orange-50 text-orange-700 font-semibold; }
+  .icon { @apply h-5 w-5 shrink-0; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .table-wrap { @apply relative overflow-x-auto; }
+  .data-table { @apply w-full text-left text-sm whitespace-nowrap; }
+  .data-table th { @apply bg-gray-50/80 px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide; }
+  .data-table td { @apply border-t border-gray-100 px-5 py-4; }
+  .data-table tbody tr:hover { @apply bg-gray-50/60; }
+  .amount { @apply tabular-nums; }
+  .badge { @apply inline-flex items-center rounded-md px-2 py-1 text-sm font-medium bg-gray-100 text-gray-600; }
+  .badge-paid, .badge-posted { @apply bg-emerald-50 text-emerald-700; }
+  .badge-overdue { @apply bg-red-50 text-red-700; }
+  .badge-unpaid, .badge-part { @apply bg-amber-50 text-amber-800; }
+  .badge-void { @apply bg-gray-100 text-gray-500; }
+  .field { @apply space-y-1.5; }
+  .field label { @apply block text-sm font-medium text-gray-700; }
+  .field .helptext { @apply block text-sm text-gray-500; }
+  .errorlist { @apply rounded-md bg-red-50 px-3 py-2 text-sm text-red-700; }
+  .empty { @apply px-6 py-12 text-center text-gray-500; }
+  .metric { @apply panel p-5; }
+  .metric-value { @apply mt-4 text-2xl lg:text-[1.7rem] font-semibold tracking-tight tabular-nums; }
+  .section-header { @apply flex items-center justify-between gap-4 p-5; }
+  .section-title { @apply font-semibold text-base; }
+}
+.chart-bar { min-height: 2px; transition: height .4s ease; }
+.sidebar { width: 238px; }
+.main-shell { margin-left: 238px; }
+@media(max-width: 1023px) {
+  .sidebar { transform: translateX(-100%); transition: transform .2s ease; }
+  .sidebar.open { transform: translateX(0); }
+  .main-shell { margin-left: 0; }
+}
+@media print {
+  body { background: white; }
+  .sidebar, .topbar, .no-print, .messages { display: none !important; }
+  .main-shell { margin: 0; }
+  main { padding: 0 !important; }
+  .panel { box-shadow: none; border: 0; }
+  .print-document { padding: 0 !important; }
+  .print-grid { display: block !important; }
+}
+
+.grid > * { min-width: 0; }
