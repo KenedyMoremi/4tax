@@ -31,7 +31,12 @@ def save_profile(*, owner, sector, business_form, profile_forms):
     if not profile:
         profile = SectorProfile(business=business, sector=sector, version=0)
     profile.owner_id_number = profile_forms.identity.cleaned_data['owner_id_number']
-    profile.details = profile_forms.cleaned_details()
+    updated_details = profile_forms.cleaned_details()
+    if profile.details and profile.details.get('schema_version') != 2:
+        updated_details['previous_registration_details'] = profile.details
+    elif 'previous_registration_details' in profile.details:
+        updated_details['previous_registration_details'] = profile.details['previous_registration_details']
+    profile.details = updated_details
     profile.version += 1
     profile.full_clean()
     profile.save()

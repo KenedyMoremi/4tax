@@ -1,0 +1,1006 @@
+{
+  "schemaVersion": 2,
+  "currency": "LSL",
+  "turnoverPeriod": "monthly",
+  "salaryPeriod": "monthly",
+  "ownerFields": [
+    {
+      "name": "fullNames",
+      "label": "Business owner’s full names",
+      "type": "string",
+      "required": true,
+      "max_length": "250"
+    },
+    {
+      "name": "idNumber",
+      "label": "Owner’s national identity number",
+      "type": "string",
+      "required": true,
+      "max_length": "40"
+    }
+  ],
+  "sectors": [
+    {
+      "value": "transport",
+      "label": "Transport",
+      "fields": [
+        {
+          "name": "business_type",
+          "label": "Type of transport",
+          "type": "choice",
+          "required": true,
+          "choices": [
+            {
+              "value": "taxi",
+              "label": "Taxi"
+            },
+            {
+              "value": "cab",
+              "label": "Cab"
+            },
+            {
+              "value": "catch_a_ride",
+              "label": "Catch-a-ride"
+            }
+          ]
+        },
+        {
+          "name": "working_days",
+          "label": "Working days",
+          "type": "multiple_choice",
+          "required": true,
+          "choices": [
+            {
+              "value": "Monday",
+              "label": "Monday"
+            },
+            {
+              "value": "Tuesday",
+              "label": "Tuesday"
+            },
+            {
+              "value": "Wednesday",
+              "label": "Wednesday"
+            },
+            {
+              "value": "Thursday",
+              "label": "Thursday"
+            },
+            {
+              "value": "Friday",
+              "label": "Friday"
+            },
+            {
+              "value": "Saturday",
+              "label": "Saturday"
+            },
+            {
+              "value": "Sunday",
+              "label": "Sunday"
+            }
+          ]
+        },
+        {
+          "name": "opens_at",
+          "label": "Work starts",
+          "type": "time",
+          "required": true
+        },
+        {
+          "name": "closes_at",
+          "label": "Work ends",
+          "type": "time",
+          "required": true
+        },
+        {
+          "name": "overnight",
+          "label": "Work ends on the following day (including a 24-hour shift)",
+          "type": "boolean",
+          "required": false
+        },
+        {
+          "name": "location",
+          "label": "Business location",
+          "type": "string",
+          "required": true,
+          "max_length": "250"
+        },
+        {
+          "name": "turnover_range",
+          "label": "Monthly turnover (M)",
+          "type": "choice",
+          "required": true,
+          "choices": [
+            {
+              "value": "100_499",
+              "label": "M100–499"
+            },
+            {
+              "value": "500_999",
+              "label": "M500–999"
+            },
+            {
+              "value": "1000_9999",
+              "label": "M1,000–9,999"
+            },
+            {
+              "value": "10000_49999",
+              "label": "M10,000–49,999"
+            },
+            {
+              "value": "50000_plus",
+              "label": "M50,000 and above"
+            }
+          ]
+        },
+        {
+          "name": "vin",
+          "label": "VIN / chassis number",
+          "type": "string",
+          "required": true,
+          "max_length": "250"
+        },
+        {
+          "name": "license_plate",
+          "label": "License plate number",
+          "type": "string",
+          "required": true,
+          "max_length": "250"
+        }
+      ],
+      "collections": [
+        {
+          "name": "routes",
+          "label": "Routes and prices",
+          "minimum": 1,
+          "maximum": 50,
+          "actions": [
+            "add_another",
+            "continue"
+          ],
+          "fields": [
+            {
+              "name": "origin",
+              "label": "Route starts at",
+              "type": "string",
+              "required": true,
+              "max_length": "250"
+            },
+            {
+              "name": "destination",
+              "label": "Route ends at",
+              "type": "string",
+              "required": true,
+              "max_length": "250"
+            },
+            {
+              "name": "price",
+              "label": "Price per route (M)",
+              "type": "integer",
+              "required": true,
+              "min_value": "0",
+              "decimal_places": "2"
+            }
+          ]
+        },
+        {
+          "name": "employees",
+          "label": "Employees and monthly salaries",
+          "minimum": 0,
+          "maximum": 50,
+          "actions": [
+            "add_another",
+            "continue"
+          ],
+          "fields": [
+            {
+              "name": "name",
+              "label": "Employee’s full names",
+              "type": "string",
+              "required": true,
+              "max_length": "250"
+            },
+            {
+              "name": "salary_range",
+              "label": "Monthly salary (M)",
+              "type": "choice",
+              "required": true,
+              "choices": [
+                {
+                  "value": "500_999",
+                  "label": "M500–999"
+                },
+                {
+                  "value": "1000_9999",
+                  "label": "M1,000–9,999"
+                },
+                {
+                  "value": "10000_19999",
+                  "label": "M10,000–19,999"
+                },
+                {
+                  "value": "20000_plus",
+                  "label": "M20,000 and above"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "value": "services",
+      "label": "Services",
+      "fields": [
+        {
+          "name": "service_type",
+          "label": "Type of service",
+          "type": "choice",
+          "required": true,
+          "choices": [
+            {
+              "value": "salon",
+              "label": "Salon"
+            },
+            {
+              "value": "mechanic",
+              "label": "Mechanic"
+            },
+            {
+              "value": "plumber",
+              "label": "Plumber"
+            },
+            {
+              "value": "electrician",
+              "label": "Electrician"
+            },
+            {
+              "value": "bricklayer",
+              "label": "Bricklayer"
+            }
+          ]
+        },
+        {
+          "name": "working_days",
+          "label": "Working days",
+          "type": "multiple_choice",
+          "required": true,
+          "choices": [
+            {
+              "value": "Monday",
+              "label": "Monday"
+            },
+            {
+              "value": "Tuesday",
+              "label": "Tuesday"
+            },
+            {
+              "value": "Wednesday",
+              "label": "Wednesday"
+            },
+            {
+              "value": "Thursday",
+              "label": "Thursday"
+            },
+            {
+              "value": "Friday",
+              "label": "Friday"
+            },
+            {
+              "value": "Saturday",
+              "label": "Saturday"
+            },
+            {
+              "value": "Sunday",
+              "label": "Sunday"
+            }
+          ]
+        },
+        {
+          "name": "opens_at",
+          "label": "Work starts",
+          "type": "time",
+          "required": true
+        },
+        {
+          "name": "closes_at",
+          "label": "Work ends",
+          "type": "time",
+          "required": true
+        },
+        {
+          "name": "overnight",
+          "label": "Work ends on the following day (including a 24-hour shift)",
+          "type": "boolean",
+          "required": false
+        },
+        {
+          "name": "location",
+          "label": "Business location",
+          "type": "string",
+          "required": true,
+          "max_length": "250"
+        },
+        {
+          "name": "turnover_range",
+          "label": "Monthly turnover (M)",
+          "type": "choice",
+          "required": true,
+          "choices": [
+            {
+              "value": "100_499",
+              "label": "M100–499"
+            },
+            {
+              "value": "500_999",
+              "label": "M500–999"
+            },
+            {
+              "value": "1000_9999",
+              "label": "M1,000–9,999"
+            },
+            {
+              "value": "10000_49999",
+              "label": "M10,000–49,999"
+            },
+            {
+              "value": "50000_plus",
+              "label": "M50,000 and above"
+            }
+          ]
+        },
+        {
+          "name": "service_price_range",
+          "label": "Price per service (M)",
+          "type": "choice",
+          "required": true,
+          "choices": [
+            {
+              "value": "100_499",
+              "label": "M100–499"
+            },
+            {
+              "value": "500_999",
+              "label": "M500–999"
+            },
+            {
+              "value": "1000_9999",
+              "label": "M1,000–9,999"
+            },
+            {
+              "value": "10000_49999",
+              "label": "M10,000–49,999"
+            },
+            {
+              "value": "50000_plus",
+              "label": "M50,000 and above"
+            }
+          ]
+        }
+      ],
+      "collections": [
+        {
+          "name": "employees",
+          "label": "Employees and monthly salaries",
+          "minimum": 0,
+          "maximum": 50,
+          "actions": [
+            "add_another",
+            "continue"
+          ],
+          "fields": [
+            {
+              "name": "name",
+              "label": "Employee’s full names",
+              "type": "string",
+              "required": true,
+              "max_length": "250"
+            },
+            {
+              "name": "salary_range",
+              "label": "Monthly salary (M)",
+              "type": "choice",
+              "required": true,
+              "choices": [
+                {
+                  "value": "500_999",
+                  "label": "M500–999"
+                },
+                {
+                  "value": "1000_9999",
+                  "label": "M1,000–9,999"
+                },
+                {
+                  "value": "10000_19999",
+                  "label": "M10,000–19,999"
+                },
+                {
+                  "value": "20000_plus",
+                  "label": "M20,000 and above"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "value": "ecommerce",
+      "label": "E-Commerce",
+      "fields": [
+        {
+          "name": "service_type",
+          "label": "Type of service",
+          "type": "choice",
+          "required": true,
+          "choices": [
+            {
+              "value": "shein_runner",
+              "label": "Shein runner"
+            },
+            {
+              "value": "takealot",
+              "label": "Takealot"
+            },
+            {
+              "value": "other",
+              "label": "Other"
+            }
+          ]
+        },
+        {
+          "name": "location",
+          "label": "Business location",
+          "type": "string",
+          "required": true,
+          "max_length": "250"
+        },
+        {
+          "name": "turnover_range",
+          "label": "Monthly turnover (M)",
+          "type": "choice",
+          "required": true,
+          "choices": [
+            {
+              "value": "100_499",
+              "label": "M100–499"
+            },
+            {
+              "value": "500_999",
+              "label": "M500–999"
+            },
+            {
+              "value": "1000_9999",
+              "label": "M1,000–9,999"
+            },
+            {
+              "value": "10000_49999",
+              "label": "M10,000–49,999"
+            },
+            {
+              "value": "50000_plus",
+              "label": "M50,000 and above"
+            }
+          ]
+        },
+        {
+          "name": "other_description",
+          "label": "Describe Other (if selected)",
+          "type": "string",
+          "required": false,
+          "max_length": "250"
+        },
+        {
+          "name": "purchase_price_range",
+          "label": "Item purchase price (M)",
+          "type": "choice",
+          "required": true,
+          "choices": [
+            {
+              "value": "100_499",
+              "label": "M100–499"
+            },
+            {
+              "value": "500_999",
+              "label": "M500–999"
+            },
+            {
+              "value": "1000_9999",
+              "label": "M1,000–9,999"
+            },
+            {
+              "value": "10000_49999",
+              "label": "M10,000–49,999"
+            },
+            {
+              "value": "50000_plus",
+              "label": "M50,000 and above"
+            }
+          ]
+        },
+        {
+          "name": "selling_price_range",
+          "label": "Item selling price (M)",
+          "type": "choice",
+          "required": true,
+          "choices": [
+            {
+              "value": "100_499",
+              "label": "M100–499"
+            },
+            {
+              "value": "500_999",
+              "label": "M500–999"
+            },
+            {
+              "value": "1000_9999",
+              "label": "M1,000–9,999"
+            },
+            {
+              "value": "10000_49999",
+              "label": "M10,000–49,999"
+            },
+            {
+              "value": "50000_plus",
+              "label": "M50,000 and above"
+            }
+          ]
+        },
+        {
+          "name": "shipping_price_range",
+          "label": "Shipping / logistics price (M)",
+          "type": "choice",
+          "required": true,
+          "choices": [
+            {
+              "value": "100_499",
+              "label": "M100–499"
+            },
+            {
+              "value": "500_999",
+              "label": "M500–999"
+            },
+            {
+              "value": "1000_9999",
+              "label": "M1,000–9,999"
+            },
+            {
+              "value": "10000_49999",
+              "label": "M10,000–49,999"
+            },
+            {
+              "value": "50000_plus",
+              "label": "M50,000 and above"
+            }
+          ]
+        }
+      ],
+      "collections": [
+        {
+          "name": "employees",
+          "label": "Employees and monthly salaries",
+          "minimum": 0,
+          "maximum": 50,
+          "actions": [
+            "add_another",
+            "continue"
+          ],
+          "fields": [
+            {
+              "name": "name",
+              "label": "Employee’s full names",
+              "type": "string",
+              "required": true,
+              "max_length": "250"
+            },
+            {
+              "name": "salary_range",
+              "label": "Monthly salary (M)",
+              "type": "choice",
+              "required": true,
+              "choices": [
+                {
+                  "value": "500_999",
+                  "label": "M500–999"
+                },
+                {
+                  "value": "1000_9999",
+                  "label": "M1,000–9,999"
+                },
+                {
+                  "value": "10000_19999",
+                  "label": "M10,000–19,999"
+                },
+                {
+                  "value": "20000_plus",
+                  "label": "M20,000 and above"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "value": "retail",
+      "label": "Retail",
+      "fields": [
+        {
+          "name": "goods_type",
+          "label": "Type of goods",
+          "type": "choice",
+          "required": true,
+          "choices": [
+            {
+              "value": "clothing",
+              "label": "Clothing"
+            },
+            {
+              "value": "fruits",
+              "label": "Fruits"
+            },
+            {
+              "value": "food",
+              "label": "Food"
+            },
+            {
+              "value": "all",
+              "label": "All"
+            },
+            {
+              "value": "other",
+              "label": "Other"
+            }
+          ]
+        },
+        {
+          "name": "location",
+          "label": "Business location",
+          "type": "string",
+          "required": true,
+          "max_length": "250"
+        },
+        {
+          "name": "turnover_range",
+          "label": "Monthly turnover (M)",
+          "type": "choice",
+          "required": true,
+          "choices": [
+            {
+              "value": "100_499",
+              "label": "M100–499"
+            },
+            {
+              "value": "500_999",
+              "label": "M500–999"
+            },
+            {
+              "value": "1000_9999",
+              "label": "M1,000–9,999"
+            },
+            {
+              "value": "10000_49999",
+              "label": "M10,000–49,999"
+            },
+            {
+              "value": "50000_plus",
+              "label": "M50,000 and above"
+            }
+          ]
+        },
+        {
+          "name": "other_description",
+          "label": "Describe Other (if selected)",
+          "type": "string",
+          "required": false,
+          "max_length": "250"
+        },
+        {
+          "name": "purchase_price_range",
+          "label": "Item purchase price (M)",
+          "type": "choice",
+          "required": true,
+          "choices": [
+            {
+              "value": "100_499",
+              "label": "M100–499"
+            },
+            {
+              "value": "500_999",
+              "label": "M500–999"
+            },
+            {
+              "value": "1000_9999",
+              "label": "M1,000–9,999"
+            },
+            {
+              "value": "10000_49999",
+              "label": "M10,000–49,999"
+            },
+            {
+              "value": "50000_plus",
+              "label": "M50,000 and above"
+            }
+          ]
+        },
+        {
+          "name": "selling_price_range",
+          "label": "Item selling price (M)",
+          "type": "choice",
+          "required": true,
+          "choices": [
+            {
+              "value": "100_499",
+              "label": "M100–499"
+            },
+            {
+              "value": "500_999",
+              "label": "M500–999"
+            },
+            {
+              "value": "1000_9999",
+              "label": "M1,000–9,999"
+            },
+            {
+              "value": "10000_49999",
+              "label": "M10,000–49,999"
+            },
+            {
+              "value": "50000_plus",
+              "label": "M50,000 and above"
+            }
+          ]
+        }
+      ],
+      "collections": [
+        {
+          "name": "employees",
+          "label": "Employees and monthly salaries",
+          "minimum": 0,
+          "maximum": 50,
+          "actions": [
+            "add_another",
+            "continue"
+          ],
+          "fields": [
+            {
+              "name": "name",
+              "label": "Employee’s full names",
+              "type": "string",
+              "required": true,
+              "max_length": "250"
+            },
+            {
+              "name": "salary_range",
+              "label": "Monthly salary (M)",
+              "type": "choice",
+              "required": true,
+              "choices": [
+                {
+                  "value": "500_999",
+                  "label": "M500–999"
+                },
+                {
+                  "value": "1000_9999",
+                  "label": "M1,000–9,999"
+                },
+                {
+                  "value": "10000_19999",
+                  "label": "M10,000–19,999"
+                },
+                {
+                  "value": "20000_plus",
+                  "label": "M20,000 and above"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "value": "agriculture",
+      "label": "Agriculture",
+      "fields": [
+        {
+          "name": "activity",
+          "label": "Agricultural activity",
+          "type": "choice",
+          "required": true,
+          "choices": [
+            {
+              "value": "farming",
+              "label": "Farming"
+            },
+            {
+              "value": "livestock",
+              "label": "Livestock"
+            },
+            {
+              "value": "other",
+              "label": "Other"
+            }
+          ]
+        },
+        {
+          "name": "location",
+          "label": "Business location",
+          "type": "string",
+          "required": true,
+          "max_length": "250"
+        },
+        {
+          "name": "turnover_range",
+          "label": "Monthly turnover (M)",
+          "type": "choice",
+          "required": true,
+          "choices": [
+            {
+              "value": "100_499",
+              "label": "M100–499"
+            },
+            {
+              "value": "500_999",
+              "label": "M500–999"
+            },
+            {
+              "value": "1000_9999",
+              "label": "M1,000–9,999"
+            },
+            {
+              "value": "10000_49999",
+              "label": "M10,000–49,999"
+            },
+            {
+              "value": "50000_plus",
+              "label": "M50,000 and above"
+            }
+          ]
+        },
+        {
+          "name": "other_description",
+          "label": "Describe Other (if selected)",
+          "type": "string",
+          "required": false,
+          "max_length": "250"
+        },
+        {
+          "name": "selling_price_range",
+          "label": "Selling price of output (M)",
+          "type": "choice",
+          "required": true,
+          "choices": [
+            {
+              "value": "100_499",
+              "label": "M100–499"
+            },
+            {
+              "value": "500_999",
+              "label": "M500–999"
+            },
+            {
+              "value": "1000_9999",
+              "label": "M1,000–9,999"
+            },
+            {
+              "value": "10000_49999",
+              "label": "M10,000–49,999"
+            },
+            {
+              "value": "50000_plus",
+              "label": "M50,000 and above"
+            }
+          ]
+        },
+        {
+          "name": "farmland_count",
+          "label": "Number of farmland plots (0 if none)",
+          "type": "integer",
+          "required": true,
+          "min_value": "0",
+          "max_value": "1000000"
+        },
+        {
+          "name": "farmland_size",
+          "label": "Total farmland size",
+          "type": "integer",
+          "required": true,
+          "min_value": "0",
+          "decimal_places": "4"
+        },
+        {
+          "name": "farmland_unit",
+          "label": "Farmland size unit",
+          "type": "choice",
+          "required": true,
+          "choices": [
+            {
+              "value": "hectares",
+              "label": "Hectares"
+            },
+            {
+              "value": "acres",
+              "label": "Acres"
+            },
+            {
+              "value": "square_metres",
+              "label": "Square metres"
+            }
+          ]
+        }
+      ],
+      "collections": [
+        {
+          "name": "livestock",
+          "label": "Livestock types and numbers",
+          "minimum": 0,
+          "maximum": 50,
+          "actions": [
+            "add_another",
+            "continue"
+          ],
+          "fields": [
+            {
+              "name": "animal_type",
+              "label": "Type of livestock",
+              "type": "string",
+              "required": true,
+              "max_length": "250"
+            },
+            {
+              "name": "number",
+              "label": "Number of animals",
+              "type": "integer",
+              "required": true,
+              "min_value": "1",
+              "max_value": "1000000"
+            }
+          ]
+        },
+        {
+          "name": "employees",
+          "label": "Employees and monthly salaries",
+          "minimum": 0,
+          "maximum": 50,
+          "actions": [
+            "add_another",
+            "continue"
+          ],
+          "fields": [
+            {
+              "name": "name",
+              "label": "Employee’s full names",
+              "type": "string",
+              "required": true,
+              "max_length": "250"
+            },
+            {
+              "name": "salary_range",
+              "label": "Monthly salary (M)",
+              "type": "choice",
+              "required": true,
+              "choices": [
+                {
+                  "value": "500_999",
+                  "label": "M500–999"
+                },
+                {
+                  "value": "1000_9999",
+                  "label": "M1,000–9,999"
+                },
+                {
+                  "value": "10000_19999",
+                  "label": "M10,000–19,999"
+                },
+                {
+                  "value": "20000_plus",
+                  "label": "M20,000 and above"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

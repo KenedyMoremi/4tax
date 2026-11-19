@@ -18,27 +18,18 @@ class ProfileTests(TestCase):
         self.client.force_login(self.user)
 
     def payload(self, sector):
-        common = {'business-name':'Test business', 'business-district':'Maseru', 'business-default_tax_rate':'0', 'identity-owner_id_number':'0000123456','identity-version':'0'}
+        common = {'business-name':'Test business', 'business-district':'Maseru', 'business-default_tax_rate':'0', 'identity-owner_full_name':'Test Owner', 'identity-owner_id_number':'0000123456','identity-version':'0'}
         hours = {'working_days':['Monday','Friday'], 'opens_at':'08:00','closes_at':'17:00'}
-        staff = {'role':'Assistant','number':'2','salary':'1500.00','salary_period':'monthly'}
-        item = {'name':'Shirt','item_type':'Clothing','unit':'each','purchase_price':'25.50','selling_price':'40.75'}
+        staff = {'name':'Test Employee','salary_range':'1000_9999'}
+        base = {'location':'Maseru', 'turnover_range':'1000_9999'}
         samples = {
-            'transport': (hours | {'role':'both'}, {
-                'routes':[{'origin':'Maseru','destination':'Roma','price':'25.50','price_basis':'passenger'}],
-                'vehicles':[{'registration_number':'TEST001','vin':'TESTVIN001','make_model':'Test car','registered_owner':'Test owner','condition':'good','tank_litres':'45','last_service':timezone.localdate().isoformat(),'service_interval_months':'6'}],
-            }),
-            'services': (hours | {'employee_count':'2'}, {
-                'services':[{'name':'Consultation','price_type':'quote'},{'name':'Repair','price_type':'from','price':'150.25'}],
-                'equipment':[{'name':'Tools','quantity':'3','status':'needed'}], 'employees':[staff],
-            }),
-            'ecommerce': ({'marketing_types':['Social media','WhatsApp'],'data_provider':'Test plan','data_allowance':'20 GB','data_cost':'100','data_period':'monthly'}, {
-                'items':[item], 'shipping':[{'method':'Courier','price':'20','basis':'order'}], 'gadgets':[{'name':'Phone','quantity':'1'}],
-            }),
-            'retail': ({'employee_count':'2','location':'Maseru market'}, {'stock':[item | {'quantity':'10'}], 'employees':[staff]}),
-            'agriculture': ({'employee_count':'0','activity':'mixed','activity_description':'Crops and sheep','location':'Roma'}, {
-                'inputs':[{'name':'Feed','unit':'bag','price':'150'}], 'outputs':[{'name':'Maize','unit':'kg','selling_price':'20'}],
-                'land':[{'description':'North field','hectares':'1.25'}], 'livestock':[{'animal_type':'Sheep','description':'Young flock','number':'5','age_months':'12','price':'500'}], 'employees':[],
-            }),
+            'transport': (base | hours | {'business_type':'taxi','vin':'TESTVIN','license_plate':'TEST001'}, {
+                'routes':[{'origin':'Maseru','destination':'Roma','price':'25.50'}], 'employees':[staff]}),
+            'services': (base | hours | {'service_type':'salon','service_price_range':'100_499'}, {'employees':[staff]}),
+            'ecommerce': (base | {'service_type':'shein_runner','purchase_price_range':'100_499','selling_price_range':'500_999','shipping_price_range':'100_499'}, {'employees':[staff]}),
+            'retail': (base | {'goods_type':'clothing','purchase_price_range':'100_499','selling_price_range':'500_999'}, {'employees':[staff]}),
+            'agriculture': (base | {'activity':'livestock','selling_price_range':'1000_9999','farmland_count':'1','farmland_size':'1.25','farmland_unit':'hectares'}, {
+                'livestock':[{'animal_type':'Sheep','number':'5'}], 'employees':[staff]}),
         }
         main, rows = samples[sector]
         common.update({'details-'+k:v for k,v in main.items()})
@@ -73,10 +64,8 @@ class ProfileTests(TestCase):
                 self.assertEqual(Account.objects.filter(business=profile.business).count(),17)
                 self.assertFalse(JournalEntry.objects.filter(business=profile.business).exists())
                 self.assertContains(self.client.get(reverse('sector_details',args=[sector])),'0000123456')
-                if sector=='retail':
-                    self.assertEqual(profile.details['stock'][0]['selling_price'],'40.75')
-                if sector=='services':
-                    self.assertIsNone(profile.details['services'][0]['price'])
+                self.assertEqual(profile.details['owner_full_name'], 'Test Owner')
+                self.assertEqual(profile.details['employees'][0]['salary_range'], '1000_9999')
 
     def test_each_page_has_only_its_sector_fields(self):
         for sector in SECTORS:
@@ -89,7 +78,7 @@ class ProfileTests(TestCase):
         self.assertEqual(self.client.post(reverse('onboarding'),{'sector':'invented'}).status_code,200)
 
     def test_missing_management_data_and_negative_prices_do_not_create_business(self):
-        data = self.payload('retail');data['stock-0-selling_price']='-1'
+        data = self.payload('retail');data['details-selling_price_range']='-1'
         response=self.submit('retail',data)
         self.assertEqual(response.status_code,200)
         self.assertFalse(Business.objects.filter(owner=self.user).exists())
@@ -97,8 +86,8 @@ class ProfileTests(TestCase):
         self.assertEqual(self.submit('transport',data).status_code,200)
         self.assertFalse(Business.objects.filter(owner=self.user).exists())
 
-    def test_employee_totals_working_hours_and_vehicle_dates_are_validated(self):
-        cases=[('services',{'details-employee_count':'3'}),('transport',{'details-closes_at':'07:00'}),('transport',{'vehicles-0-last_service':(timezone.localdate()+timedelta(days=1)).isoformat()}),('transport',{'vehicles-0-service_interval_months':''}),('transport',{'vehicles-0-tank_litres':'0'})]
+    def test_ranges_hours_and_required_vehicle_fields_are_validated(self):
+        cases=[('services',{'employees-0-salary_range':'50000_plus'}),('transport',{'details-closes_at':'07:00'}),('transport',{'details-vin':''}),('transport',{'details-license_plate':''}),('retail',{'details-turnover_range':'123'})]
         for sector, changes in cases:
             with self.subTest(changes=changes):
                 self.assertEqual(self.submit(sector,self.payload(sector)|changes).status_code,200)
@@ -107,21 +96,22 @@ class ProfileTests(TestCase):
         self.assertEqual(self.submit('transport',data).status_code,302)
 
     def test_agriculture_requires_land_and_animals_only_when_applicable(self):
-        data=self.payload('agriculture')|{'land-0-DELETE':'on'}
+        data=self.payload('agriculture')|{'details-activity':'farming','details-farmland_count':'0'}
         self.assertEqual(self.submit('agriculture',data).status_code,200)
         data=self.payload('agriculture')|{'livestock-0-DELETE':'on'}
         self.assertEqual(self.submit('agriculture',data).status_code,200)
-        data=self.payload('agriculture')|{'details-activity':'crops','livestock-0-DELETE':'on'}
+        data=self.payload('agriculture')|{'details-activity':'farming','livestock-0-DELETE':'on'}
         self.assertEqual(self.submit('agriculture',data).status_code,302)
         self.assertEqual(SectorProfile.objects.get().details['livestock'],[])
 
-    def test_zero_employees_optional_equipment_and_unserviced_vehicle(self):
-        data=self.payload('services')|{'details-employee_count':'0','employees-0-DELETE':'on','equipment-0-DELETE':'on'}
+    def test_zero_employees_and_multiple_named_employees(self):
+        data=self.payload('services')|{'employees-0-DELETE':'on'}
         self.assertEqual(self.submit('services',data).status_code,302)
         self.assertEqual(SectorProfile.objects.get().details['employees'],[])
         self.client.force_login(self.other)
-        data=self.payload('transport')|{'vehicles-0-last_service':'','vehicles-0-never_serviced':'on'}
+        data=self.payload('transport')|{'employees-TOTAL_FORMS':'2','employees-1-name':'Second Employee','employees-1-salary_range':'20000_plus'}
         self.assertEqual(self.submit('transport',data).status_code,302)
+        self.assertEqual(len(SectorProfile.objects.get(business__owner=self.other).details['employees']),2)
 
     def test_repeat_submission_and_stale_edit_cannot_overwrite(self):
         data=self.payload('retail')
@@ -171,6 +161,16 @@ class ProfileTests(TestCase):
         self.assertFalse(Account.objects.filter(business__owner=self.user).exists())
 
     def test_formset_maximum_and_required_rows_cannot_be_bypassed(self):
-        for changes in [{'stock-TOTAL_FORMS':'1000000'}, {'stock-0-DELETE':'on'}]:
+        for changes in [{'employees-TOTAL_FORMS':'1000000'}, {'employees-0-name':''}]:
             self.assertEqual(self.submit('retail',self.payload('retail')|changes).status_code,200)
         self.assertFalse(SectorProfile.objects.exists())
+
+    def test_legacy_profile_details_survive_upgrade(self):
+        business = setup_business(owner=self.user, name='Existing business')
+        old = {'details': {'employee_count': 2}, 'stock': [{'name':'Old item','selling_price':'40.75'}]}
+        profile = SectorProfile.objects.create(business=business, sector='retail', owner_id_number='0000123456', details=old)
+        response = self.submit('retail', self.payload('retail') | {'identity-version':'1'})
+        self.assertEqual(response.status_code, 302)
+        profile.refresh_from_db()
+        self.assertEqual(profile.details['previous_registration_details'], old)
+        self.assertEqual(profile.details['schema_version'], 2)

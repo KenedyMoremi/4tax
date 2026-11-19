@@ -10,7 +10,6 @@ import org.springframework.stereotype.Component;
 
 @Component
 public class JourneyEngine {
-    private static final List<String> WEEK = List.of("MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY");
     private final NodeRouter router;
     private final Backend backend;
     private final SessionStore store;
@@ -25,6 +24,8 @@ public class JourneyEngine {
     public void input(Session s, String input) {
         if (input.equals("99")) { end(s, "goodbye"); return; }
         if (!authorized(s)) return;
+        if (s.draft != null && s.draft.sector != null && !RegistrationSchema.sectors().contains(s.draft.sector)
+                && !s.node.equals("RESUME")) { router.go(s, "RESUME"); s.error = "error.oldDraft"; return; }
         if (input.equals("0")) {
             if (s.draft != null && s.draft.mayHaveSubmitted) { router.go(s, "RETRY"); return; }
             router.back(s); return;
@@ -34,6 +35,7 @@ public class JourneyEngine {
             s.page = Math.max(0, Math.min(count - 1, s.page + (input.equals("88") ? 1 : -1))); return;
         }
         s.error = null;
+        if (s.node.startsWith("COLLECTION:")) { collection(s, s.node.substring(11), input); return; }
         if (s.node.startsWith("FIELD:")) { field(s, s.node.substring(6), input); return; }
         switch (s.node) {
             case "LANGUAGE" -> {
@@ -48,17 +50,6 @@ public class JourneyEngine {
             case "AUTH_MENU" -> { if (input.equals("1")) begin(s); else invalid(s); }
             case "RESUME" -> resume(s, input);
             case "SECTOR" -> sector(s, input);
-            case "OPTIONAL_NAME" -> {
-                if (input.equals("1")) router.go(s, "FIELD:businessName");
-                else if (input.equals("2")) { s.draft.answers.remove("businessName"); router.next(s, "businessName"); save(s); }
-                else invalid(s);
-            }
-            case "CONTACT" -> {
-                if (input.equals("1")) { s.draft.answers.put("mobileNumber", s.mobile); router.next(s, "mobileNumber"); save(s); }
-                else if (input.equals("2")) router.go(s, "FIELD:mobileNumber");
-                else invalid(s);
-            }
-            case "DAYS" -> days(s, input);
             case "REVIEW" -> review(s, input);
             case "EDIT" -> edit(s, input);
             case "PIN_NEW" -> newPin(s, input);
@@ -116,58 +107,58 @@ public class JourneyEngine {
     }
     private void continueDraft(Session s) {
         if (s.draft.ownerId != null && !s.draft.ownerId.equals(s.ownerId)) { end(s, "error.expired"); return; }
+        if (s.draft.sector != null && !RegistrationSchema.sectors().contains(s.draft.sector)) { router.go(s, "RESUME"); s.error = "error.oldDraft"; return; }
         String next = s.draft.node;
         if (Set.of("RESUME", "RETRY", "AUTH_UNKNOWN", "SUBMIT").contains(next)) next = "REVIEW";
         router.go(s, next);
     }
     private void sector(Session s, String input) {
-        String sector = switch (input) { case "1" -> "TRANSPORT"; case "2" -> "WELLNESS"; case "3" -> "VENDOR"; default -> null; };
-        if (sector == null) { invalid(s); return; }
-        if (!sector.equals(s.draft.sector)) { s.draft.answers.clear(); s.draft.operationId = UUID.randomUUID().toString(); }
+        int index;
+        try { index = Integer.parseInt(input) - 1; } catch (NumberFormatException e) { invalid(s); return; }
+        var sectors = RegistrationSchema.sectors();
+        if (index < 0 || index >= sectors.size()) { invalid(s); return; }
+        String sector = sectors.get(index);
+        if (!sector.equals(s.draft.sector)) { s.draft.answers.clear(); s.draft.collections.clear(); s.draft.operationId = UUID.randomUUID().toString(); }
         s.draft.sector = sector; router.go(s, router.fieldNode(s.draft, router.fields(sector).getFirst())); save(s);
+    }
+    private void collection(Session s, String name, String input) {
+        var group = RegistrationSchema.group(s.draft.sector, name);
+        var rows = s.draft.collections.computeIfAbsent(name, k -> new ArrayList<>());
+        if (input.equals("1") && rows.size() < group.get("maximum").asInt()) {
+            s.draft.answers.keySet().removeIf(k -> k.startsWith(name + "."));
+            router.go(s, "FIELD:" + name + "." + group.get("fields").get(0).get("name").asText());
+        } else if (input.equals("2") && rows.size() >= group.get("minimum").asInt()) {
+            s.draft.answers.put(name, Integer.toString(rows.size())); router.next(s, name);
+        } else if (input.equals("3")) {
+            rows.clear(); s.draft.answers.remove(name);
+        } else invalid(s);
+        save(s);
     }
     private void field(Session s, String field, String input) {
         String value = input.strip().replaceAll("\\s+", " ");
-        if (value.isBlank() || value.length() > (field.equals("location") || field.equals("residence") ? 120 : 80)
-                || value.chars().anyMatch(Character::isISOControl)) { invalid(s); return; }
         try {
-            value = switch (field) {
-                case "mobileNumber" -> PhoneNumbers.normalize(value);
-                case "opensAt", "closesAt" -> {
-                    if (!value.matches("(?:[01][0-9]|2[0-3]):[0-5][0-9]")) throw new IllegalArgumentException();
-                    yield value;
+            if (value.chars().anyMatch(Character::isISOControl)) throw new IllegalArgumentException();
+            value = RegistrationSchema.parse(s.draft.sector, field, value);
+        } catch (IllegalArgumentException e) { invalid(s); return; }
+        s.draft.answers.put(field, value);
+        if (field.contains(".")) {
+            String groupName = field.substring(0, field.indexOf('.'));
+            var fields = RegistrationSchema.group(s.draft.sector, groupName).get("fields");
+            int index = 0;
+            while (!(groupName + "." + fields.get(index).get("name").asText()).equals(field)) index++;
+            if (index + 1 < fields.size()) {
+                router.go(s, "FIELD:" + groupName + "." + fields.get(index + 1).get("name").asText());
+            } else {
+                var row = new LinkedHashMap<String, String>();
+                for (var f : fields) {
+                    String key = f.get("name").asText(); row.put(key, s.draft.answers.remove(groupName + "." + key));
                 }
-                case "days" -> parseDays(value);
-                case "vin", "numberPlate" -> {
-                    if (!value.matches("[A-Za-z0-9 -]{1,32}")) throw new IllegalArgumentException();
-                    yield value.toUpperCase(Locale.ROOT);
-                }
-                case "idNumber" -> {
-                    if (!value.matches("[A-Za-z0-9 -]{1,64}")) throw new IllegalArgumentException(); yield value;
-                }
-                default -> value;
-            };
-        } catch (IllegalArgumentException error) { invalid(s); return; }
-        s.draft.answers.put(field, value); router.next(s, field); save(s);
-    }
-    private String parseDays(String input) {
-        LinkedHashSet<String> selected = new LinkedHashSet<>();
-        for (String day : input.split(",", -1)) {
-            if (!day.strip().matches("[1-7]")) throw new IllegalArgumentException();
-            selected.add(WEEK.get(Integer.parseInt(day.strip()) - 1));
-        }
-        return String.join(",", WEEK.stream().filter(selected::contains).toList());
-    }
-    private void days(Session s, String input) {
-        String days = switch (input) {
-            case "1" -> String.join(",", WEEK.subList(0, 5));
-            case "2" -> String.join(",", WEEK.subList(0, 6));
-            case "3" -> String.join(",", WEEK);
-            default -> null;
-        };
-        if (input.equals("4")) { router.go(s, "FIELD:days"); return; }
-        if (days == null) { invalid(s); return; }
-        s.draft.answers.put("days", days); router.next(s, "days"); save(s);
+                s.draft.collections.computeIfAbsent(groupName, k -> new ArrayList<>()).add(row);
+                router.go(s, "COLLECTION:" + groupName);
+                s.history.removeIf(n -> n.startsWith("FIELD:" + groupName + "."));
+            }
+        } else router.next(s, field);
+        save(s);
     }
     private void review(Session s, String input) {
         if (input.equals("2")) {
@@ -175,7 +166,6 @@ public class JourneyEngine {
         }
         if (!input.equals("1")) { invalid(s); return; }
         for (String field : router.fields(s.draft.sector)) {
-            if (field.equals("businessName") && !s.draft.sector.equals("WELLNESS")) continue;
             if (!s.draft.answers.containsKey(field)) { router.go(s, router.fieldNode(s.draft, field)); return; }
         }
         if (s.token == null) router.go(s, "PIN_NEW"); else submit(s);
@@ -259,10 +249,15 @@ public class JourneyEngine {
     }
     BusinessRegistration registration(Session s) {
         Map<String, String> a = s.draft.answers;
-        return new BusinessRegistration(Sector.valueOf(s.draft.sector), new Owner(a.get("idNumber"), a.get("fullNames"), a.get("residence")),
-                a.get("businessName"), a.get("mobileNumber"), a.get("location"),
-                s.draft.sector.equals("TRANSPORT") ? new Vehicle(a.get("vin"), a.get("numberPlate")) : null,
-                s.draft.sector.equals("WELLNESS") ? new Schedule(List.of(a.get("days").split(",")), a.get("opensAt"), a.get("closesAt")) : null,
+        var details = new LinkedHashMap<String, Object>();
+        for (String field : router.fields(s.draft.sector)) {
+            if (!Set.of("fullNames", "idNumber").contains(field) && RegistrationSchema.group(s.draft.sector, field) == null)
+                details.put(field, RegistrationSchema.value(s.draft.sector, field, a.get(field)));
+        }
+        return new BusinessRegistration(s.draft.sector, new Owner(a.get("idNumber"), a.get("fullNames")), details,
+                s.draft.collections.getOrDefault("employees", List.of()),
+                s.draft.sector.equals("transport") ? s.draft.collections.getOrDefault("routes", List.of()) : null,
+                s.draft.sector.equals("agriculture") ? s.draft.collections.getOrDefault("livestock", List.of()) : null,
                 new Source("USSD", s.draft.language));
     }
     private void save(Session s) {

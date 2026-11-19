@@ -88,7 +88,7 @@ public class HttpBackend implements Backend {
         } catch (RestClientResponseException error) {
             try {
                 String code = json.readValue(error.getResponseBodyAsString(), ApiError.class).code();
-                throw new Failure(code == null ? "SERVICE_UNAVAILABLE" : code);
+                throw new Failure(error.getStatusCode().value() == 401 ? "LOGIN_REQUIRED" : code == null ? "SERVICE_UNAVAILABLE" : code);
             }
             catch (Failure failure) { throw failure; }
             catch (Exception ignored) { throw new Failure(error.getStatusCode().value() == 401 ? "LOGIN_REQUIRED" : "SERVICE_UNAVAILABLE"); }

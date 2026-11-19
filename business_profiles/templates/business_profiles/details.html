@@ -11,7 +11,7 @@
 {{ group.formset.management_form }}{{ group.formset.non_form_errors }}
 <div data-rows class="space-y-4">{% for row in group.formset %}{% include 'business_profiles/row.html' with row=row %}{% endfor %}</div>
 <template data-empty-row>{% include 'business_profiles/row.html' with row=group.formset.empty_form %}</template>
-<button type="button" class="btn-secondary" data-add-row>Add another row</button><p class="text-sm text-gray-500" data-row-limit aria-live="polite"></p>
+<button type="button" class="btn-secondary" data-add-row>{% if group.prefix == 'employees' %}Add another employee{% elif group.prefix == 'livestock' %}Add another livestock type{% else %}Add another route{% endif %}</button><button type="button" class="btn-secondary" data-continue>Continue</button><p class="text-sm text-gray-500" data-row-limit aria-live="polite"></p>
 </section>{% endfor %}
 <div class="flex flex-wrap gap-3"><button type="submit" class="btn-primary">{% if editing %}Save business details{% else %}Complete business setup{% endif %}</button>{% if not editing %}<a class="btn-secondary" href="{% url 'onboarding' %}">Choose another sector</a>{% else %}<a class="btn-secondary" href="{% url 'dashboard' %}">Cancel</a>{% endif %}</div>
 <noscript><p class="mt-4 text-sm">Enable JavaScript to add multiple rows. You can save the rows shown here without JavaScript and add more by editing the profile again.</p></noscript>

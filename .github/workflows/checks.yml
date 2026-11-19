@@ -17,5 +17,6 @@ jobs:
       - run: npm run build:css
       - run: python manage.py check
       - run: python manage.py makemigrations --check --dry-run
+      - run: python manage.py export_registration_schema --check
       - run: python manage.py test
       - run: python bookkeeping/scripts/check_concurrency.py

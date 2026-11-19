@@ -6,19 +6,18 @@ import java.util.Map;
 /** Local consumer contracts. The auth API is authoritative for authentication. */
 public final class Contracts {
     private Contracts() {}
-    public enum Sector { TRANSPORT, WELLNESS, VENDOR }
     public record PinRequest(String mobileNumber, String pin) {
         @Override public String toString() { return "PinRequest[redacted]"; }
     }
     public record TokenReply(String ownerId, String accessToken, String tokenType, long expiresIn) {
         @Override public String toString() { return "TokenReply[redacted]"; }
     }
-    public record Owner(String idNumber, String fullNames, String residence) {}
-    public record Vehicle(String vin, String numberPlate) {}
-    public record Schedule(List<String> days, String opensAt, String closesAt) {}
+    public record Owner(String idNumber, String fullNames) {}
     public record Source(String channel, String language) {}
-    public record BusinessRegistration(Sector sector, Owner owner, String businessName, String mobileNumber,
-            String location, Vehicle vehicle, Schedule operatingSchedule, Source source) {
+    @com.fasterxml.jackson.annotation.JsonInclude(com.fasterxml.jackson.annotation.JsonInclude.Include.NON_NULL)
+    public record BusinessRegistration(String sector, Owner owner, Map<String, Object> details,
+            List<Map<String, String>> employees, List<Map<String, String>> routes,
+            List<Map<String, String>> livestock, Source source) {
         @Override public String toString() { return "BusinessRegistration[redacted]"; }
     }
     public record RegistrationReply(String entityId, String reference) {}

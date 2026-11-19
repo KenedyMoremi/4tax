@@ -1,3 +1,5 @@
+import uuid
+
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models
 
@@ -21,3 +23,22 @@ class SectorProfile(models.Model):
 
     class Meta:
         constraints = [models.CheckConstraint(condition=models.Q(sector__in=['transport','services','ecommerce','retail','agriculture']), name='valid_profile_sector')]
+
+
+class USSDRegistration(models.Model):
+    """External auth identities are deliberately separate from Django web users."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    issuer = models.CharField(max_length=255)
+    owner_subject = models.UUIDField()
+    idempotency_key = models.CharField(max_length=128)
+    payload = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=['issuer', 'owner_subject', 'idempotency_key'],
+            name='unique_ussd_registration_retry')]
+
+    @property
+    def reference(self):
+        return f'4TAX-{self.id.hex.upper()}'

@@ -41,7 +41,12 @@ public class Screen {
         List<String> pages = pages(s); s.page = Math.max(0, Math.min(s.page, pages.size() - 1)); return pages.get(s.page);
     }
     private String body(Session s) {
-        if (s.node.startsWith("FIELD:")) return messages.text(s.language, "prompt." + s.node.substring(6));
+        if (s.node.startsWith("FIELD:")) return RegistrationSchema.prompt(s.draft.sector, s.node.substring(6), s.language);
+        if (s.node.startsWith("COLLECTION:")) {
+            String name = s.node.substring(11);
+            int count = s.draft.collections.getOrDefault(name, List.of()).size();
+            return RegistrationSchema.label(s.draft.sector, name, s.language) + " (" + count + ")\n" + messages.text(s.language, "collectionActions");
+        }
         return switch (s.node) {
             case "LANGUAGE" -> messages.text(s.language, "language");
             case "MAIN" -> messages.text(s.language, "main");
@@ -65,7 +70,7 @@ public class Screen {
     private String edit(Session s) {
         var text = new StringBuilder(messages.text(s.language, "edit"));
         List<String> fields = router.fields(s.draft.sector);
-        for (int i = 0; i < fields.size(); i++) text.append("\n").append(i + 1).append(". ").append(messages.text(s.language, "label." + fields.get(i)));
+        for (int i = 0; i < fields.size(); i++) text.append("\n").append(i + 1).append(". ").append(RegistrationSchema.label(s.draft.sector, fields.get(i), s.language));
         return text.toString();
     }
     private String review(Session s) {
@@ -75,7 +80,8 @@ public class Screen {
             if (field.equals("days") && s.draft.answers.containsKey(field)) {
                 value = String.join(", ", Arrays.stream(value.split(",")).map(day -> messages.text(s.language, "day." + day)).toList());
             }
-            text.append("\n").append(messages.text(s.language, "label." + field)).append(": ").append(value);
+            if (s.draft.collections.containsKey(field)) value = s.draft.collections.get(field).toString();
+            text.append("\n").append(RegistrationSchema.label(s.draft.sector, field, s.language)).append(": ").append(value);
         }
         return text.append("\n").append(messages.text(s.language, "reviewActions")).toString();
     }

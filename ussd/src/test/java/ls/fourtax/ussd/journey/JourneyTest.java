@@ -19,24 +19,44 @@ class JourneyTest {
         d.input("087431");
         assertTrue(d.last.end()); assertTrue(d.last.message().contains("DEMO-0001"));
         var registration = backend.saved.values().iterator().next();
-        assertEquals("000123456789", registration.owner().idNumber()); assertNull(registration.businessName());
-        assertEquals("VIN00000000000001", registration.vehicle().vin());
+        assertEquals("000123456789", registration.owner().idNumber());
+        assertEquals("VIN00000000000001", registration.details().get("vin"));
         assertNull(d.state()); assertNull(store.draft(d.crypto.digest(d.mobile)));
     }
-    @Test void vendorContactCanDifferFromLoginNumberAndPinMismatchRestartsSetup() {
-        d.start(); d.steps("1", "1", "3", "1", "Fresh fruit", "Market stall 2", "2", "62123456", "000123", "Mpho Example", "1", "123456", "654321");
-        assertEquals("PIN_NEW", d.state().node); assertTrue(d.last.message().contains("did not match"));
-        d.steps("012345", "012345");
-        assertTrue(d.last.end()); assertEquals("+26662123456", backend.saved.values().iterator().next().mobileNumber());
+    @Test void allFiveSectorsUseTheSharedContract() {
+        for (int sector=1; sector<=5; sector++) {
+            setup(); d.start(); d.steps("1", "1", Integer.toString(sector)); d.fillToReview();
+            d.steps("1", "012345", "012345");
+            assertTrue(d.last.end());
+            var registration = backend.saved.values().iterator().next();
+            assertEquals(RegistrationSchema.sectors().get(sector-1), registration.sector());
+            assertEquals("100_499", registration.details().get("turnover_range"));
+        }
     }
-    @Test void wellnessSupportsCustomDaysTimeValidationAndSesotho() {
-        d.start(); d.steps("2", "1", "2", "1", "4", "1,3,5", "25:00");
-        assertEquals("FIELD:opensAt", d.state().node); assertTrue(d.last.message().contains("ha lia nepahala"));
-        d.steps("08:00", "17:30", "Salon Example", "Ha Thetsane", "000456", "Mpho Example", "1", "012345", "012345");
-        assertTrue(d.last.end()); assertTrue(d.last.message().contains("ngolisitsoe"));
-        var registration = backend.saved.values().iterator().next();
-        assertEquals(List.of("MONDAY", "WEDNESDAY", "FRIDAY"), registration.operatingSchedule().days());
-        assertEquals("st", registration.source().language());
+    @Test void employeeNameThenSalaryMenuRepeatsAndCanContinue() {
+        d.start(); d.steps("1", "1", "4");
+        while (!d.state().node.equals("COLLECTION:employees")) {
+            String field = d.state().node.substring(6);
+            d.input(switch(field) {
+                case "fullNames" -> "Mpho Example"; case "idNumber" -> "000123";
+                case "location" -> "Maseru"; case "other_description" -> "-"; default -> "1";
+            });
+        }
+        d.steps("1", "First Employee", "4", "1", "Second Employee", "1", "2");
+        assertEquals("REVIEW", d.state().node);
+        d.steps("1", "012345", "654321");
+        assertEquals("PIN_NEW", d.state().node);
+        d.steps("012345", "012345");
+        var staff = backend.saved.values().iterator().next().employees();
+        assertEquals(2, staff.size()); assertEquals("20000_plus", staff.getFirst().get("salary_range"));
+        assertEquals("Second Employee", staff.getLast().get("name"));
+    }
+    @Test void invalidTimeDoesNotAdvanceAndSesothoSessionIsPreserved() {
+        d.start(); d.steps("2", "1", "2", "1", "Mpho Example", "000123", "1", "25:00");
+        // Hours precede common location fields in the shared form metadata.
+        assertEquals("FIELD:opens_at", d.state().node);
+        d.fillToReview(); d.steps("1", "012345", "012345");
+        assertTrue(d.last.end()); assertEquals("st", backend.saved.values().iterator().next().source().language());
     }
     @Test void loginAllowsAnotherBusinessWithoutPinCreation() {
         d.transportToReview("1"); d.steps("1", "012345", "012345");
@@ -55,7 +75,7 @@ class JourneyTest {
         assertEquals(backend.attempts.getFirst(), backend.attempts.getLast());
     }
     @Test void unfinishedDraftResumesAndExpiredDraftCannotBeResurrected() {
-        d.start(); d.steps("1", "1", "1", "VIN00000000000001", "A1234", "99");
+        d.start(); d.steps("1", "1", "1", "1", "Mpho Example", "99");
         d.start(); d.steps("1", "1", "1"); assertEquals("FIELD:idNumber", d.state().node);
         store.advance(901); d.input("000123"); assertTrue(d.last.end()); assertTrue(d.last.message().contains("expired"));
         d.start(); d.steps("1", "1"); assertEquals("SECTOR", d.state().node);
@@ -71,8 +91,9 @@ class JourneyTest {
         d.transportToReview("1");
         assertTrue(d.last.message().contains("(1/"));
         d.input("88"); assertTrue(d.state().page > 0);
-        d.steps("2", "5", "Ha Abia");
-        assertEquals("REVIEW", d.state().node); assertEquals("Ha Abia", d.state().draft.answers.get("residence"));
+        int location = new NodeRouter().fields("transport").indexOf("location") + 1;
+        d.steps("2", Integer.toString(location), "Ha Abia");
+        assertEquals("REVIEW", d.state().node); assertEquals("Ha Abia", d.state().draft.answers.get("location"));
         d.steps("1", "012345", "012345"); assertTrue(d.last.end());
     }
     @Test void translationsContainExactlyTheSameKeysAndPreserveApostrophes() {

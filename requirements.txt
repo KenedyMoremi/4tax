@@ -6,3 +6,4 @@ python-dotenv==1.2.4
 twilio==9.13.0
 openai==2.54.0
 pydantic==2.14.3
+PyJWT[crypto]==2.15.1
