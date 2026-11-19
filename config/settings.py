@@ -19,13 +19,14 @@ VERCEL_HOSTS = [os.environ[key] for key in ['VERCEL_URL', 'VERCEL_PROJECT_PRODUC
 ALLOWED_HOSTS = list(dict.fromkeys(ALLOWED_HOSTS + VERCEL_HOSTS))
 if IS_VERCEL and not os.environ.get('DATABASE_URL'):
     raise ImproperlyConfigured('Set DATABASE_URL in the Vercel project environment.')
-INSTALLED_APPS = ['django.contrib.admin', 'django.contrib.auth', 'django.contrib.contenttypes', 'django.contrib.sessions', 'django.contrib.messages', 'django.contrib.staticfiles', 'books']
+INSTALLED_APPS = ['django.contrib.admin', 'django.contrib.auth', 'django.contrib.contenttypes', 'django.contrib.sessions', 'django.contrib.messages', 'django.contrib.staticfiles', 'bookkeeping.apps.BookkeepingConfig', 'whatsapp.apps.WhatsAppConfig']
 MIDDLEWARE = ['django.middleware.security.SecurityMiddleware', 'django.contrib.sessions.middleware.SessionMiddleware', 'django.middleware.common.CommonMiddleware', 'django.middleware.csrf.CsrfViewMiddleware', 'django.contrib.auth.middleware.AuthenticationMiddleware', 'django.contrib.messages.middleware.MessageMiddleware', 'django.middleware.clickjacking.XFrameOptionsMiddleware']
 ROOT_URLCONF = 'config.urls'
-TEMPLATES = [{'BACKEND': 'django.template.backends.django.DjangoTemplates', 'DIRS': [BASE_DIR / 'templates'], 'APP_DIRS': True, 'OPTIONS': {'context_processors': ['django.template.context_processors.request', 'django.contrib.auth.context_processors.auth', 'django.contrib.messages.context_processors.messages', 'books.context_processors.workspace']}}]
+TEMPLATES = [{'BACKEND': 'django.template.backends.django.DjangoTemplates', 'DIRS': [BASE_DIR / 'templates'], 'APP_DIRS': True, 'OPTIONS': {'context_processors': ['django.template.context_processors.request', 'django.contrib.auth.context_processors.auth', 'django.contrib.messages.context_processors.messages', 'bookkeeping.context_processors.workspace']}}]
 WSGI_APPLICATION = 'config.wsgi.application'
 DATABASES = {'default': database_config(os.environ.get('DATABASE_URL', ''), os.environ.get('DJANGO_DB_PATH', BASE_DIR / 'db.sqlite3'))}
 AUTH_PASSWORD_VALIDATORS = [{'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'}, {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'}, {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'}, {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'}]
+# Keep the deployed model identity; the Python implementation is shared.
 AUTH_USER_MODEL = 'books.User'
 LANGUAGE_CODE = 'en'
 TIME_ZONE = 'Africa/Maseru'
@@ -57,3 +58,14 @@ if not DEBUG:
         'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
         'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.ManifestStaticFilesStorage'},
     }
+
+# WhatsApp is opt-in until provider credentials and the public webhook are configured.
+WHATSAPP_ENABLED = os.environ.get('WHATSAPP_ENABLED', '0') == '1'
+TWILIO_ACCOUNT_SID = os.environ.get('TWILIO_ACCOUNT_SID', '')
+TWILIO_AUTH_TOKEN = os.environ.get('TWILIO_AUTH_TOKEN', '')
+TWILIO_WHATSAPP_FROM = os.environ.get('TWILIO_WHATSAPP_FROM', '')
+TWILIO_WEBHOOK_URL = os.environ.get('TWILIO_WEBHOOK_URL', '')
+OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY', '')
+OPENAI_BOOKKEEPING_MODEL = os.environ.get('OPENAI_BOOKKEEPING_MODEL', 'gpt-5.4-mini')
+WHATSAPP_HOURLY_LIMIT = 30
+WHATSAPP_SEND_INTERVAL_SECONDS = 3  # Twilio Sandbox sender limit; run one sender worker.

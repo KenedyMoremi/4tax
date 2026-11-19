@@ -1,0 +1,6 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="mb-6"><h1 class="text-2xl font-bold">Agent records</h1><p class="mt-2 text-gray-500">Review each draft before it changes your books.</p></div>
+<div class="space-y-5">{% for record in records %}<article class="card p-6"><div class="flex flex-wrap justify-between gap-3"><h2 class="font-semibold">{{ record.reference }}</h2><span>{{ record.get_status_display }}</span></div><p class="mt-2 text-sm text-gray-500">{{ record.created_at }} · Confirmation deadline: {{ record.expires_at }}</p><p class="my-5 whitespace-pre-line">{{ record.summary }}</p>{% if record.result %}<p class="font-semibold">{{ record.result }}</p>{% endif %}{% if record.status == 'pending' %}<form method="post" class="flex gap-3">{% csrf_token %}<input type="hidden" name="reference" value="{{ record.reference }}"><button class="btn-primary" type="submit" name="action" value="confirm">Confirm and post</button><button class="btn-secondary" type="submit" name="action" value="cancel">Cancel</button></form>{% endif %}</article>{% empty %}<div class="card p-6">No drafts yet. <a class="text-brand underline" href="{% url 'whatsapp_setup' %}">Connect WhatsApp</a> to start.</div>{% endfor %}</div>
+{% include 'bookkeeping/pagination.html' with page=records %}
+{% endblock %}

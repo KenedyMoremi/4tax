@@ -18,4 +18,4 @@ jobs:
       - run: python manage.py check
       - run: python manage.py makemigrations --check --dry-run
       - run: python manage.py test
-      - run: python scripts/check_concurrency.py
+      - run: python bookkeeping/scripts/check_concurrency.py

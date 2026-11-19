@@ -3,3 +3,6 @@ asgiref==3.13.0
 sqlparse==0.6.1
 psycopg[binary]==3.3.9
 python-dotenv==1.2.4
+twilio==9.13.0
+openai==2.54.0
+pydantic==2.14.3

@@ -1,0 +1,19 @@
+<aside id="sidebar" class="sidebar fixed inset-y-0 left-0 z-40 flex flex-col border-r border-gray-200 bg-white px-4 py-6">
+<a href="{% url 'dashboard' %}" class="flex items-center gap-2.5 px-3"><span class="flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-white"><svg class="icon h-6 w-6"><use href="#i-book"/></svg></span><span class="text-xl font-bold tracking-tight">khumo<span class="font-normal text-gray-500">books</span></span></a>
+<div class="mt-7 rounded-lg border border-gray-200 p-3"><div class="flex items-center gap-2.5"><span class="flex h-8 w-8 items-center justify-center rounded-md bg-gray-100 text-sm font-semibold">{{ workspace.name|default:'My business'|slice:':1'|upper }}</span><div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold">{{ workspace.name|default:'Your workspace' }}</p><p class="text-xs text-gray-500">{{ workspace.district|default:'Lesotho' }} · LSL</p></div></div></div>
+<nav class="mt-6 flex-1 space-y-1 overflow-y-auto" aria-label="Main navigation"><p class="eyebrow mb-3 px-3">Workspace</p>
+<a class="nav-link {% if active == 'dashboard' %}active{% endif %}" href="{% url 'dashboard' %}"><svg class="icon"><use href="#i-grid"/></svg>Overview</a>
+<a class="nav-link {% if active == 'invoice' %}active{% endif %}" href="{% url 'documents' 'invoice' %}"><svg class="icon"><use href="#i-file"/></svg>Sales invoices</a>
+<a class="nav-link {% if active == 'bill' %}active{% endif %}" href="{% url 'documents' 'bill' %}"><svg class="icon"><use href="#i-wallet"/></svg>Purchase bills</a>
+<a class="nav-link {% if active == 'expenses' %}active{% endif %}" href="{% url 'expenses' %}"><svg class="icon"><use href="#i-bank"/></svg>Expenses</a>
+<a class="nav-link {% if active == 'contacts' %}active{% endif %}" href="{% url 'contacts' %}"><svg class="icon"><use href="#i-users"/></svg>Customers & suppliers</a>
+<p class="eyebrow mb-3 px-3 pt-6">Your books</p>
+<a class="nav-link {% if active == 'accounts' %}active{% endif %}" href="{% url 'accounts' %}"><svg class="icon"><use href="#i-bank"/></svg>Chart of accounts</a>
+<a class="nav-link {% if active == 'ledger' %}active{% endif %}" href="{% url 'ledger' %}"><svg class="icon"><use href="#i-book"/></svg>General ledger</a>
+<a class="nav-link {% if active == 'reports' %}active{% endif %}" href="{% url 'reports' %}"><svg class="icon"><use href="#i-chart"/></svg>Reports</a>
+<a class="nav-link {% if active == 'whatsapp' %}active{% endif %}" href="{% url 'whatsapp_setup' %}">WhatsApp</a>
+<a class="nav-link {% if active == 'agent' %}active{% endif %}" href="{% url 'agent_records' %}">Agent records</a>
+</nav>
+<div class="mt-4 rounded-xl bg-[#fff5ed] p-4"><div class="mb-2 flex items-center gap-2 text-orange-800"><svg class="icon"><use href="#i-shield"/></svg><span class="text-sm font-semibold">Built for Basotho business</span></div><p class="text-xs leading-relaxed text-gray-600">A clearer picture of your money.<br>A stronger future for your business.</p></div>
+<a class="nav-link mt-3 {% if active == 'settings' %}active{% endif %}" href="{% url 'settings' %}"><svg class="icon"><use href="#i-settings"/></svg>Business settings</a>
+</aside>

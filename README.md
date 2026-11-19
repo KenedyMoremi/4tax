@@ -2,6 +2,31 @@
 
 Django 5.2 + server-rendered HTML templates + locally compiled Tailwind CSS. An independent bookkeeping application for MSMEs in Lesotho, with orange and charcoal inspired by [Revenue Services Lesotho’s public branding](https://www.rsl.org.ls/). It is not affiliated with RSL and does not use the RSL logo.
 
+## Project organization
+
+```text
+bookkeeping/
+  models.py, services.py, reporting.py   # financial domain
+  forms.py, views.py, urls.py            # bookkeeping request handling
+  migrations/                           # existing migration history
+  templates/bookkeeping/                # bookkeeping screens and navigation
+  static/bookkeeping/js/invoice.js       # invoice-specific browser behavior
+  templatetags/, management/, scripts/   # formatting, demo data, concurrency check
+  tests.py                              # bookkeeping workflow tests
+config/
+  settings.py, urls.py, database.py      # shared project configuration
+  auth_models.py, authentication.py      # existing shared user/signup behavior
+  auth_admin.py, tests/                 # shared user admin and infrastructure tests
+templates/                              # shared layout, includes, authentication pages
+static/                                 # shared theme and browser utilities
+```
+
+Bookkeeping remains in `bookkeeping/`. The OpenAI interpretation adapter is in `agents/`, and Twilio transport, phone linking and durable messaging are in `whatsapp/`. No USSD, bookings or new authentication service has been built.
+
+The Python app is `bookkeeping`, while `BookkeepingConfig.label` remains **`books`**. This preserves database table names, permissions/content types, migration dependencies and the configured **`books.User`** identity. Existing migration files are unchanged. The shared user model is defined in `config/auth_models.py` and registered under that historical label when bookkeeping models load. A future standalone authentication service would require its own explicit migration plan; do not change the label or `AUTH_USER_MODEL` as a folder rename.
+
+Routes and URL names remain unchanged. `config/urls.py` owns the shared authentication/admin routes and includes `bookkeeping/urls.py` for the bookkeeping routes. The folder reorganization requires no data transfer. The optional WhatsApp integration adds its own tables and a bookkeeping proposal table through new migrations.
+
 ## Run locally
 
 Requires Python 3.12–3.14 (developed and tested on 3.14), and Node 22+ only when rebuilding CSS.
@@ -64,7 +89,7 @@ Only posted transactions appear in reports. Drafts do not affect balances. Trans
 
 VAT summaries show what was entered, not eligibility for recovery or a filing-ready liability. Rates and recovery treatment must be verified for the business. The app does not submit returns to RSL.
 
-All ledger writes pass through `books/services.py`, which validates tenant ownership and balance inside an atomic transaction. Database constraints protect source idempotency, document numbering, payment limits and positive debit/credit sides. Payments, expense submissions, posting and reversals are retry-safe. Posted data has no edit/delete interface. Application/database operators must not bypass the service layer: cross-row balanced-journal invariants cannot be expressed as a simple database check constraint.
+All ledger writes pass through `bookkeeping/services.py`, which validates tenant ownership and balance inside an atomic transaction. Database constraints protect source idempotency, document numbering, payment limits and positive debit/credit sides. Payments, expense submissions, posting and reversals are retry-safe. Posted data has no edit/delete interface. Application/database operators must not bypass the service layer: cross-row balanced-journal invariants cannot be expressed as a simple database check constraint.
 
 Set `DATABASE_URL` in the environment or the ignored local `.env` to use PostgreSQL/Neon. The supplied URL’s SSL and channel-binding options are preserved. Connections use a 10-second timeout, no Django persistent connections, and no server-side cursors for compatibility with Neon’s transaction pooler. PostgreSQL writes lock the business row before reading balances. Never commit connection credentials.
 
@@ -81,7 +106,7 @@ npm run watch:css
 python manage.py check
 python manage.py makemigrations --check --dry-run
 python manage.py test
-python scripts/check_concurrency.py
+python bookkeeping/scripts/check_concurrency.py
 ```
 
 Tests cover posting, balancing, payment and expense retries/reversals, rounding, period reporting, snapshots, CSRF, cross-business reads/writes, form validation, authentication/onboarding, and template rendering. `python manage.py test` selects `config.test_settings`, uses a disposable SQLite database, and makes no external calls even when `.env` points to Neon. The concurrency script explicitly disables `DATABASE_URL`. Use a separate disposable PostgreSQL database for PostgreSQL integration testing; never point the test runner at the application database. A separate file-backed SQLite check verifies that concurrent full-payment attempts cannot overpay a document. CI runs Django checks, migration drift checks, tests, the concurrency check, and the Tailwind build.
@@ -100,3 +125,7 @@ This is a Python/Django server application. Sites static/Cloudflare Worker hosti
 6. Run `python manage.py check --deploy` with the production environment, configure backups and restore testing, logging, monitoring and login rate limiting at the proxy, then verify the site over HTTPS.
 
 Scope: this release covers core bookkeeping for one owner per business. It does not include staff invitations, bank-feed imports/reconciliation, automated email/SMS delivery, inventory valuation, payroll, foreign currency, statutory tax filing, or period locking. The account chart is predefined; purchase bills post to purchases/materials. Opening receivables/payables should be represented by individual historical documents, not manual control-account adjustments. For opening inventory/assets or advanced accounting adjustments, extend the chart and workflows before using them.
+
+## WhatsApp bookkeeping agent
+
+OpenAI and Twilio Sandbox integration is implemented, disabled by default. Owners verify their phone, send a text transaction and confirm the validated preview before posting. See [setup, worker operation and limitations](docs/WHATSAPP.md). Provider credentials, the new migrations and a running worker are required for activation.
