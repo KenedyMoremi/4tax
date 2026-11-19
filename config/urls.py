@@ -12,5 +12,6 @@ urlpatterns = [
     path('', include('whatsapp.urls')),
     path('', include('business_profiles.urls')),
     path('', include('bookings.urls')),
+    path('', include('pos.urls')),
     path('', include('bookkeeping.urls')),
 ]
