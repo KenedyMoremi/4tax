@@ -36,6 +36,14 @@ public class AuthSecurity {
     @Bean PasswordEncoder passwordEncoder() { return new BCryptPasswordEncoder(12); }
 
     @Bean RSAKey signingKey(AuthSettings settings) throws Exception {
+        if (settings.signingJwk() != null && !settings.signingJwk().isBlank()) {
+            RSAKey key;
+            try { key = RSAKey.parse(settings.signingJwk()); }
+            catch (Exception error) { throw new IllegalArgumentException("Invalid configured auth signing key"); }
+            if (!key.isPrivate() || key.size() < 2048 || key.getKeyID() == null || key.getKeyID().isBlank())
+                throw new IllegalArgumentException("Configure a private RSA signing key with a stable key ID and at least 2048 bits");
+            return key;
+        }
         KeyStore store = KeyStore.getInstance("PKCS12");
         char[] password = settings.keyStorePassword().toCharArray();
         try (InputStream input = Files.newInputStream(Path.of(settings.keyStore()))) { store.load(input, password); }

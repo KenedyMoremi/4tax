@@ -7,10 +7,14 @@ spring:
     name: fourtax-ussd
   data:
     redis:
+      url: ${REDIS_URL:}
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD}
+      password: ${REDIS_PASSWORD:}
       timeout: 2s
+      username: ${REDIS_USERNAME:default}
+      ssl:
+        enabled: ${REDIS_SSL:false}
 ussd:
   gateway-key: ${GATEWAY_KEY}
   state-secret: ${STATE_SECRET}

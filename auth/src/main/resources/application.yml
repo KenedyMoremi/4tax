@@ -9,10 +9,15 @@ spring:
     url: ${AUTH_DATABASE_URL:jdbc:postgresql://localhost:5432/fourtax_auth}
     username: ${POSTGRES_USER:fourtax}
     password: ${POSTGRES_PASSWORD}
+    hikari:
+      maximum-pool-size: 3
+      minimum-idle: 0
+      connection-timeout: 10000
 auth:
   issuer: ${AUTH_ISSUER:http://localhost:9000}
   key-store: ${AUTH_KEY_STORE:.local/signing.p12}
-  key-store-password: ${KEYSTORE_PASSWORD}
+  key-store-password: ${KEYSTORE_PASSWORD:}
+  signing-jwk: ${AUTH_SIGNING_JWK:}
   key-alias: signing
 management:
   endpoints:

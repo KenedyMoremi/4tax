@@ -60,3 +60,7 @@ Successful account creation/login returns an owner JWT with audience `registrati
 Issuer metadata is at `/.well-known/oauth-authorization-server`; public signing keys are at `/oauth2/jwks`. JWTs enforce signature, issuer, audience, kind, scope and expiry. Auth API DTOs redact PINs, tokens and issued client secrets from diagnostic string output.
 
 See [the OpenAPI contract](openapi.yaml) and [configuration](src/main/resources/application.yml).
+
+## Vercel
+
+`Dockerfile.vercel` builds this service independently. Hosted instances use a persistent secret `AUTH_SIGNING_JWK` instead of a mounted keystore. See [the multi-service deployment guide](../docs/JAVA_VERCEL.md).

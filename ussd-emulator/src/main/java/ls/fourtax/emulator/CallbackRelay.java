@@ -21,7 +21,11 @@ public class CallbackRelay {
 
     public ExchangeReply exchange(ExchangeRequest request) {
         String xml = codec.encode(request);
-        URI original = target(request.callbackUrl()); URI effective = effective(original);
+        URI original = target(request.callbackUrl());
+        String allowed = settings.allowedCallbackUrl();
+        if (allowed != null && !allowed.isBlank() && !original.equals(URI.create(allowed)))
+            throw new IllegalArgumentException("This hosted emulator can only call its configured USSD callback.");
+        URI effective = effective(original);
         String key = Objects.requireNonNullElse(request.gatewayKey(), "");
         String header = Objects.requireNonNullElse(request.gatewayHeader(), "X-Gateway-Key");
         if (!header.matches("[A-Za-z][A-Za-z0-9-]{0,63}") || Set.of("host", "content-length", "content-type", "connection", "transfer-encoding", "upgrade", "accept").contains(header.toLowerCase(Locale.ROOT))

@@ -8,6 +8,7 @@ spring:
 emulator:
   default-callback-url: ${DEFAULT_CALLBACK_URL:http://localhost:8080/ussd/callback/grapevine}
   default-service-code: ${DEFAULT_SERVICE_CODE:*123#}
+  allowed-callback-url: ${ALLOWED_CALLBACK_URL:}
   localhost-alias: ${LOCALHOST_ALIAS:}
 management:
   endpoints:

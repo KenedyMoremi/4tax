@@ -64,3 +64,7 @@ See [OpenAPI](openapi.yaml). No database, Redis or OAuth application credentials
 `mvn verify` tests identity generation, XML formats and escaping, request replay, abort/timeout events, HTTP failures, redirects, response limits, stalled-body timeouts, and the web/API endpoints.
 
 With auth, USSD and the registration mock running, use `python3 scripts/smoke-test.py` for a full callback test. It prompts for the gateway key without saving it, or accepts `GATEWAY_KEY` in the process environment. It creates synthetic test owners/businesses through all three journeys. Optional `EMULATOR_URL` and `USSD_CALLBACK_URL` select other local test endpoints.
+
+## Vercel
+
+`Dockerfile.vercel` builds this service independently. Configure `ALLOWED_CALLBACK_URL` to the exact hosted USSD callback before public deployment; other destinations are rejected before network access. See [the multi-service deployment guide](../docs/JAVA_VERCEL.md).

@@ -29,7 +29,7 @@ class CallbackRelayTest {
             exchange.getResponseBody().write(response); exchange.close();
         });
         server.start(); base = "http://127.0.0.1:" + server.getAddress().getPort();
-        relay = new CallbackRelay(new GrapevineCodec(), new EmulatorSettings(base, "*123#", ""));
+        relay = new CallbackRelay(new GrapevineCodec(), new EmulatorSettings(base, "*123#", "", ""));
     }
     @AfterEach void stop() { server.stop(0); executor.close(); }
     @Test void postsXmlAndReplayPreservesTheExactWireEnvelope() {
@@ -77,6 +77,12 @@ class CallbackRelayTest {
         });
         var reply = relay.exchange(request(base + "/large", Event.START, "", NumberFormat.INTERNATIONAL, true, 8));
         assertEquals("RESPONSE_TOO_LARGE", reply.errorCode());
+    }
+    @Test void hostedCallbackAllowlistBlocksOtherHostsPathsAndQueries() {
+        relay = new CallbackRelay(new GrapevineCodec(), new EmulatorSettings(base, "*123#", "", base + "/callback"));
+        for (String target : List.of("http://169.254.169.254/latest/meta-data", base + "/other", base + "/callback?redirect=1"))
+            assertThrows(IllegalArgumentException.class, () -> relay.exchange(request(target, Event.START, "", NumberFormat.INTERNATIONAL, true, 8)));
+        assertEquals(200, relay.exchange(request(base + "/callback", Event.START, "", NumberFormat.INTERNATIONAL, true, 8)).httpStatus());
     }
     @Test void validatesTargetUrlsBeforeMakingNetworkCalls() {
         for (String target : List.of("file:///etc/passwd", "ftp://localhost/a", "http://name:secret@localhost/callback", "http://localhost/callback#fragment"))

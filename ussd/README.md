@@ -72,3 +72,7 @@ With the `dev` profile, `POST /ussd/callback/simulator` accepts JSON through the
 Continue with `event=INPUT`, only the latest answer, and a new unique request ID. Use `ABORT` to end. The simulator is absent outside `dev`.
 
 See [USSD OpenAPI](openapi.yaml), [the external registration contract](contracts/registration-api.yaml), and [the authoritative auth API](../auth/openapi.yaml). Each consuming service defines its own wire models locally.
+
+## Vercel
+
+`Dockerfile.vercel` builds this service independently. Hosted sessions use the injected TLS `REDIS_URL`. `https://example.com` is treated as a disabled registration placeholder and receives no business data. See [the multi-service deployment guide](../docs/JAVA_VERCEL.md).

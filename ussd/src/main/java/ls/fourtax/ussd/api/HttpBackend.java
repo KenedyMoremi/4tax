@@ -48,6 +48,8 @@ public class HttpBackend implements Backend {
                 .body(new PinRequest(mobile, pin)).retrieve().body(TokenReply.class));
     }
     @Override public RegistrationReply register(String token, BusinessRegistration request, String operationId) {
+        if ("example.com".equalsIgnoreCase(java.net.URI.create(settings.registrationUrl()).getHost()))
+            throw new Failure("SERVICE_UNAVAILABLE");
         verifyOwner(token);
         RegistrationReply reply = call(() -> registration.post().uri("/api/v1/businesses").headers(h -> h.setBearerAuth(token))
                 .header("Idempotency-Key", operationId).body(request).retrieve().body(RegistrationReply.class));
