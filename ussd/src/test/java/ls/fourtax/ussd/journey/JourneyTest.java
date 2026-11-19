@@ -42,14 +42,8 @@ class JourneyTest {
     }
     @Test void employeeNameThenSalaryMenuRepeatsAndCanContinue() {
         d.start(); d.steps("1", "1", "4");
-        while (!d.state().node.equals("COLLECTION:employees")) {
-            String field = d.state().node.substring(6);
-            d.input(switch(field) {
-                case "fullNames" -> "Mpho Example"; case "idNumber" -> "000123";
-                case "location" -> "Maseru"; case "other_description" -> "-"; default -> "1";
-            });
-        }
-        d.steps("1", "First Employee", "5", "1", "Second Employee", "1", "2");
+        d.fillUntil("FIELD:employees.name");
+        d.steps("First Employee", "5", "1", "Second Employee", "1", "2");
         assertEquals("REVIEW", d.state().node);
         d.steps("1", "012345", "654321");
         assertEquals("PIN_NEW", d.state().node);

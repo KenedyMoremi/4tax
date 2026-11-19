@@ -89,8 +89,10 @@ public final class TestSupport {
             start(); steps(language, "1", "1"); fillToReview();
         }
         public void vendorFields() { input("4"); fillToReview(); }
-        public void fillToReview() {
-            for (int step=0; step<100 && !state().node.equals("REVIEW"); step++) {
+        public void fillToReview() { fillUntil("REVIEW"); }
+        public void fillUntil(String target) { fillUntilAny(Set.of(target)); }
+        public void fillUntilAny(Set<String> targets) {
+            for (int step=0; step<100 && !targets.contains(state().node); step++) {
                 String node = state().node;
                 if (node.startsWith("COLLECTION:")) {
                     String group = node.substring(11);
@@ -119,7 +121,7 @@ public final class TestSupport {
                     input(value);
                 } else throw new AssertionError("Unexpected node: " + node);
             }
-            if (!state().node.equals("REVIEW")) throw new AssertionError("Did not reach review; stopped at " + state().node);
+            if (!targets.contains(state().node)) throw new AssertionError("Did not reach " + targets + "; stopped at " + state().node);
         }
     }
 }

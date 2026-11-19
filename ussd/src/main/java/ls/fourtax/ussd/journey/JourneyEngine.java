@@ -88,7 +88,13 @@ public class JourneyEngine {
         }
     }
     public void enforceAccess(Session s) {
-        if (!s.node.equals("END") && authorized(s)) skipInactiveDescription(s);
+        if (!s.node.equals("END") && authorized(s)) {
+            skipInactiveDescription(s);
+            if (s.node.equals("COLLECTION:employees") && !s.draft.mayHaveSubmitted
+                    && s.draft.collections.getOrDefault("employees", List.of()).isEmpty()) {
+                router.go(s, "FIELD:employees.name"); save(s);
+            }
+        }
     }
     private boolean skipInactiveDescription(Session s) {
         if (!s.node.startsWith("FIELD:") && !s.node.startsWith("COLLECTION:")
@@ -147,11 +153,20 @@ public class JourneyEngine {
             s.draft.answers.put(name, Integer.toString(rows.size())); router.next(s, name);
         } else if (input.equals("3")) {
             rows.clear(); s.draft.answers.remove(name);
+            s.draft.answers.keySet().removeIf(key -> key.startsWith(name + "."));
+            router.go(s, "COLLECTION:" + name);
         } else { invalid(s); return; }
         save(s);
     }
     private void field(Session s, String field, String input) {
         String value = input.strip().replaceAll("\\s+", " ");
+        if (field.equals("employees.name") && value.equals("-")) {
+            int count = s.draft.collections.getOrDefault("employees", List.of()).size();
+            if (count < RegistrationSchema.group(s.draft.sector, "employees").get("minimum").asInt()) { invalid(s); return; }
+            s.draft.answers.keySet().removeIf(key -> key.startsWith("employees."));
+            s.draft.answers.put("employees", Integer.toString(count));
+            router.next(s, "employees"); save(s); return;
+        }
         if (field.equals("other_description") && RegistrationSchema.requiresOtherDescription(s.draft)
                 && (value.isBlank() || value.equals("-"))) { s.error = "error.otherDescriptionRequired"; return; }
         try {

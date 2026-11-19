@@ -62,6 +62,8 @@ public final class RegistrationSchema {
     public static String prompt(String sector, String name, String language) {
         var f = field(sector, name);
         var messages = new Messages();
+        if (name.equals("employees.name")) return messages.text(language, "registration.employeeNamePrompt")
+                + "\n" + messages.text(language, "registration.skipEmployee");
         if (name.equals("other_description")) return messages.text(language, "registration.describeOther");
         var result = new StringBuilder(label(sector, name, language));
         String type = f.get("type").asText();

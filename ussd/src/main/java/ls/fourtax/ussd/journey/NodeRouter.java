@@ -13,9 +13,12 @@ public class NodeRouter {
         return fields(draft.sector).stream().filter(field -> RegistrationSchema.applies(draft, field)).toList();
     }
     public String fieldNode(Draft draft, String field) {
+        if (field.equals("employees") && draft.collections.getOrDefault("employees", List.of()).isEmpty())
+            return "FIELD:employees.name";
         return RegistrationSchema.group(draft.sector, field) == null ? "FIELD:" + field : "COLLECTION:" + field;
     }
     public void go(Session session, String node) {
+        if (node.equals("COLLECTION:employees") && session.draft != null) node = fieldNode(session.draft, "employees");
         if (!session.node.equals(node)) session.history.add(session.node);
         session.node = node; session.page = 0; session.error = null;
         if (session.draft != null && ((node.startsWith("FIELD:") || node.startsWith("COLLECTION:")) || Set.of("SECTOR", "CONTACT", "DAYS", "OPTIONAL_NAME", "REVIEW", "EDIT").contains(node)))
@@ -39,6 +42,8 @@ public class NodeRouter {
         if (session.editing) { session.editing = false; session.node = "EDIT"; return; }
         while (!session.history.isEmpty()) {
             String previous = session.history.removeLast();
+            if (previous.equals("COLLECTION:employees") && session.draft != null
+                    && session.draft.collections.getOrDefault("employees", List.of()).isEmpty()) continue;
             if (previous.startsWith("FIELD:") && session.draft != null
                     && !RegistrationSchema.applies(session.draft, previous.substring(6))) continue;
             if (!previous.startsWith("PIN_") && !previous.equals("LOGIN_PIN") && !previous.equals("END")) {
