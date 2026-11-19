@@ -1,4 +1,4 @@
-# Khumo Books
+# 4Tax
 
 Django 5.2 + server-rendered HTML templates + locally compiled Tailwind CSS. An independent bookkeeping application for MSMEs in Lesotho, with orange and charcoal inspired by [Revenue Services Lesotho’s public branding](https://www.rsl.org.ls/). It is not affiliated with RSL and does not use the RSL logo.
 

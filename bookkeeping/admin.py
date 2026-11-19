@@ -16,4 +16,6 @@ class AuditAdmin(admin.ModelAdmin):
 
 for model in [Business, Contact, Account, Document, DocumentLine, JournalEntry, JournalLine, Payment, Expense]:
     admin.site.register(model, AuditAdmin)
-admin.site.site_header = 'Khumo Books administration'
+admin.site.site_header = '4Tax administration'
+
+admin.site.site_title = '4Tax administration'
