@@ -159,3 +159,10 @@ New owners sign up with a username and password, choose one of five sectors, the
 ## Service-sector bookings
 
 The separate `bookings/` app provides service and staff catalogs, appointment availability, owner scheduling and shareable customer booking pages. Working hours default to **08:00–17:00, Monday–Friday**, with editable working days. Slots are protected against double booking; online requests await owner confirmation, and customers receive private confirmation/cancellation links. See [setup, workflow and deployment notes](docs/BOOKINGS.md).
+
+### Point of sale
+
+Transport, E-Commerce, Retail and Agriculture businesses have an owner-only POS at
+`/pos/`, with a catalogue, stock quantities, cash/bank/mobile-money payment records,
+printable receipts and full refunds linked to the bookkeeping ledger. See
+[POS setup and deployment](docs/POS.md).
