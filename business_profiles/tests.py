@@ -45,7 +45,7 @@ class ProfileTests(TestCase):
 
     def test_signup_only_requires_username_password_and_sector_next(self):
         self.client.logout()
-        response = self.client.post(reverse('signup'), {'username':'simple-owner','password1':'Fresh-password-5261','password2':'Fresh-password-5261'})
+        response = self.client.post(reverse('signup'), {'username':'simple-owner','password1':'Fresh-password-5261'})
         self.assertRedirects(response, reverse('onboarding'))
         user = get_user_model().objects.get(username='simple-owner')
         self.assertFalse(Business.objects.filter(owner=user).exists())
