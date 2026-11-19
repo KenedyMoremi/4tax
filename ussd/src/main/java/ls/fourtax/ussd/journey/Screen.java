@@ -77,12 +77,13 @@ public class Screen {
     private String review(Session s) {
         var text = new StringBuilder(messages.text(s.language, "review"));
         for (String field : router.fields(s.draft)) {
-            text.append("\n").append(RegistrationSchema.label(s.draft.sector, field, s.language)).append(": ");
             var group = RegistrationSchema.group(s.draft.sector, field);
-            if (group == null) text.append(RegistrationSchema.display(s.draft.sector, field, s.draft.answers.get(field), s.language));
+            if (group == null) text.append("\n").append(RegistrationSchema.label(s.draft.sector, field, s.language)).append(": ")
+                    .append(RegistrationSchema.display(s.draft.sector, field, s.draft.answers.get(field), s.language));
             else {
                 var rows = s.draft.collections.getOrDefault(field, List.of());
-                if (rows.isEmpty()) text.append("0");
+                if (rows.isEmpty()) text.append("\n").append(RegistrationSchema.label(s.draft.sector, field, s.language)).append(": 0");
+                // Every row already labels its fields. A separate heading can become a content-free page.
                 for (int i = 0; i < rows.size(); i++) {
                     text.append("\n").append(i + 1).append(". ");
                     var values = new ArrayList<String>();

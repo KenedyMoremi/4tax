@@ -15,15 +15,17 @@ public class RedisSessionStore implements SessionStore {
     private final StringRedisTemplate redis;
     private final JsonMapper json;
     private final Duration ttl;
+    private final Duration lease;
     public RedisSessionStore(StringRedisTemplate redis, JsonMapper json, UssdSettings settings) {
         this.redis = redis; this.json = json; ttl = Duration.ofSeconds(settings.draftSeconds());
+        lease = settings.processingLease();
     }
     @Override public <T> T locked(String sessionKey, String mobile, Supplier<T> work) {
         // A caller-wide lock also protects the single resumable draft across simultaneous sessions.
         String key = "lock:" + mobile;
         String token = UUID.randomUUID().toString();
         long until = System.nanoTime() + Duration.ofSeconds(1).toNanos();
-        while (!Boolean.TRUE.equals(redis.opsForValue().setIfAbsent(key, token, Duration.ofSeconds(30)))) {
+        while (!Boolean.TRUE.equals(redis.opsForValue().setIfAbsent(key, token, lease))) {
             if (System.nanoTime() >= until) throw new IllegalStateException("Session busy");
             try { Thread.sleep(20); } catch (InterruptedException e) { Thread.currentThread().interrupt(); throw new IllegalStateException("Interrupted"); }
         }

@@ -27,4 +27,30 @@ class EmulatorHttpTest {
                 .POST(HttpRequest.BodyPublishers.ofString("{\"count\":500,\"prefix\":\"58\",\"mnc\":\"01\"}")).build(), HttpResponse.BodyHandlers.ofString());
         assertEquals(400, invalid.statusCode()); assertTrue(invalid.body().contains("INVALID_REQUEST"));
     }
+    @Test void exchangeApiBindsInspectionAndPreservesBothSidesOfTheCallback() throws Exception {
+        var callback = com.sun.net.httpserver.HttpServer.create(new java.net.InetSocketAddress("127.0.0.1", 0), 0);
+        callback.createContext("/ussd/callback/grapevine/inspect", exchange -> {
+            exchange.getRequestBody().readAllBytes();
+            byte[] body = tools.jackson.databind.json.JsonMapper.builder().build().writeValueAsBytes(Map.of(
+                    "responseXml", CallbackRelayTest.GOOD, "exchanges", java.util.List.of(Map.of("stage", "create-owner", "httpStatus", 201))));
+            exchange.getResponseHeaders().set("Content-Type", "application/json"); exchange.sendResponseHeaders(200, body.length);
+            exchange.getResponseBody().write(body); exchange.close();
+        });
+        callback.start();
+        try {
+            var r = GrapevineCodecTest.request("http://127.0.0.1:" + callback.getAddress().getPort() + "/ussd/callback/grapevine",
+                    Contracts.Event.START, "", Contracts.NumberFormat.INTERNATIONAL, true, 120);
+            var inspected = new Contracts.ExchangeRequest(r.callbackUrl(), r.gatewayHeader(), r.gatewayKey(), r.subscriber(), r.sessionId(),
+                    r.requestId(), r.serviceCode(), r.event(), r.input(), r.numberFormat(), r.includeRequestId(), r.timestamp(), 120, true);
+            var json = tools.jackson.databind.json.JsonMapper.builder().build();
+            var reply = client.send(HttpRequest.newBuilder(URI.create("http://localhost:" + port + "/api/emulator/exchanges"))
+                    .header("Content-Type", "application/json").POST(HttpRequest.BodyPublishers.ofString(json.writeValueAsString(inspected))).build(),
+                    HttpResponse.BodyHandlers.ofString());
+            assertEquals(200, reply.statusCode()); assertEquals("no-store", reply.headers().firstValue("cache-control").orElse(""));
+            var body = json.readTree(reply.body()); assertTrue(body.get("errorCode").isNull());
+            assertEquals(CallbackRelayTest.GOOD, body.get("responseXml").asText());
+            assertTrue(body.get("requestXml").asText().contains("<type>initial</type>"));
+            assertEquals("create-owner", body.get("backendExchanges").get(0).get("stage").asText());
+        } finally { callback.stop(0); }
+    }
 }

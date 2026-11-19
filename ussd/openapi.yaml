@@ -25,6 +25,46 @@ paths:
         '400': {description: Malformed or ambiguous callback XML}
         '401': {description: Missing or incorrect gateway credential}
         '503': {description: State store unavailable or concurrent request busy}
+  /ussd/callback/grapevine/inspect:
+    post:
+      operationId: inspectGrapevineCallback
+      description: |
+        Developer inspection using the same gateway key, XML parser, engine and deduplication as the MNO callback.
+        Returns the XML reply plus request-local downstream diagnostics. Credentials, tokens, PINs and personal fields
+        are redacted. Nothing is persisted or logged. A cached callback may have no new downstream exchanges.
+        LOCAL entries describe JWT verification and do not represent additional HTTP requests.
+      requestBody:
+        required: true
+        content:
+          application/xml:
+            schema: {type: string}
+      responses:
+        '200':
+          description: Inspected callback; Cache-Control no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [responseXml, exchanges]
+                properties:
+                  responseXml: {type: string}
+                  exchanges:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        stage: {enum: [application-token, create-owner, pin-login, signing-keys, verify-owner-token, register-business]}
+                        method: {enum: [POST, GET, LOCAL]}
+                        url: {type: string}
+                        httpStatus: {type: integer, description: Zero for a local check or when no HTTP response arrived}
+                        durationMs: {type: integer}
+                        requestHeaders: {type: object, additionalProperties: {type: string}}
+                        requestBody: {}
+                        responseBody: {}
+                        outcome: {type: string}
+        '400': {description: Malformed or ambiguous callback XML}
+        '401': {description: Missing or incorrect gateway credential}
+        '503': {description: State store unavailable or concurrent request busy}
   /ussd/callback/simulator:
     post:
       operationId: simulateCallback

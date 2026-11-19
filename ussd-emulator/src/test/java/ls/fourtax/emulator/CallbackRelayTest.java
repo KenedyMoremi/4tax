@@ -88,4 +88,26 @@ class CallbackRelayTest {
         for (String target : List.of("file:///etc/passwd", "ftp://localhost/a", "http://name:secret@localhost/callback", "http://localhost/callback#fragment"))
             assertThrows(IllegalArgumentException.class, () -> relay.exchange(request(target, Event.START, "", NumberFormat.INTERNATIONAL, true, 8)));
     }
+    @Test void inspectionReturnsXmlAndEveryDownstreamExchangeWithinTheSameAllowlist() {
+        var json = tools.jackson.databind.json.JsonMapper.builder().build();
+        server.createContext("/ussd/callback/grapevine/inspect", exchange -> {
+            assertEquals("synthetic-test-key", exchange.getRequestHeaders().getFirst("X-Gateway-Key"));
+            assertEquals("application/json", exchange.getRequestHeaders().getFirst("Accept"));
+            bodies.add(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
+            byte[] response = json.writeValueAsBytes(Map.of("responseXml", GOOD, "exchanges", List.of(
+                    Map.of("stage", "application-token", "httpStatus", 401, "outcome", "HTTP_ERROR",
+                            "requestBody", Map.of("grant_type", "client_credentials"), "responseBody", Map.of("code", "invalid_client")))));
+            exchange.getResponseHeaders().set("Content-Type", "application/json"); exchange.sendResponseHeaders(200, response.length);
+            exchange.getResponseBody().write(response); exchange.close();
+        });
+        String url = base + "/ussd/callback/grapevine";
+        relay = new CallbackRelay(new GrapevineCodec(), new EmulatorSettings(base, "*123#", "", url));
+        var r = request(url, Event.INPUT, "1", NumberFormat.INTERNATIONAL, true, 120);
+        var inspected = new ExchangeRequest(r.callbackUrl(), r.gatewayHeader(), r.gatewayKey(), r.subscriber(), r.sessionId(),
+                r.requestId(), r.serviceCode(), r.event(), r.input(), r.numberFormat(), r.includeRequestId(), r.timestamp(), r.timeoutSeconds(), true);
+        var reply = relay.exchange(inspected);
+        assertNull(reply.errorCode()); assertEquals(GOOD, reply.responseXml()); assertEquals("NextState", reply.state());
+        assertEquals(1, reply.backendExchanges().size()); assertEquals(401, reply.backendExchanges().getFirst().get("httpStatus"));
+        assertEquals(url + "/inspect", reply.effectiveUrl()); assertEquals(reply.requestXml(), bodies.getLast());
+    }
 }

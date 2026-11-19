@@ -74,7 +74,8 @@ paths:
                 numberFormat: {enum: [INTERNATIONAL, E164, LOCAL], description: Digits with country code / plus and country code / national number}
                 includeRequestId: {type: boolean, default: true}
                 timestamp: {type: string, format: date-time}
-                timeoutSeconds: {type: integer, minimum: 1, maximum: 30, default: 8}
+                timeoutSeconds: {type: integer, minimum: 1, maximum: 120, default: 120}
+                inspectBackend: {type: boolean, default: false, description: Call the gateway-protected 4Tax callback /inspect extension and return redacted downstream exchanges. The UI enables this by default.}
       responses:
         '200':
           description: Inspected callback exchange; Cache-Control no-store
@@ -97,6 +98,21 @@ paths:
                   state: {type: [string, 'null'], enum: [NextState, End, null]}
                   responseType: {type: [string, 'null']}
                   responseHeaders: {type: object, additionalProperties: {type: string}}
+                  backendExchanges:
+                    type: array
+                    description: Request-local auth/registration calls and local JWT checks, absent on ordinary XML callbacks. Personal fields and credentials are redacted by USSD.
+                    items:
+                      type: object
+                      properties:
+                        stage: {type: string}
+                        method: {enum: [POST, GET, LOCAL]}
+                        url: {type: string}
+                        httpStatus: {type: integer}
+                        durationMs: {type: integer}
+                        requestHeaders: {type: object, additionalProperties: {type: string}}
+                        requestBody: {}
+                        responseBody: {}
+                        outcome: {type: string}
                   errorCode:
                     type: [string, 'null']
                     enum: [HTTP_ERROR, INVALID_RESPONSE, CALLBACK_TIMEOUT, CONNECTION_ERROR, RESPONSE_TOO_LARGE, INTERRUPTED, null]

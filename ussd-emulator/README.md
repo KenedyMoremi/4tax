@@ -29,7 +29,11 @@ Each call retains its subscriber, IMSI, network, callback URL and session ID. Ev
 
 End call sends `type=abort, reason=ABORT`. Simulate timeout sends `type=abort, reason=TIMEOUT`. The configurable inactivity timer sends the same timeout event automatically. NextState keeps the handset active; End closes it. Connection failures, HTTP errors, malformed XML and callback timeouts are visible in the traffic inspector. An unconfirmed exchange must be replayed before sending the next answer.
 
-The traffic inspector shows request/response XML, HTTP status, latency and callback errors. PIN inputs are masked by default; Reveal PIN input affects the on-screen request inspector and Copy action. Gateway credentials are never included in XML or displayed in the inspector. Requests, replies and credentials are held only in tab memory. Only test subscriber profiles are saved to browser storage; reloading requires entering the gateway key again and starting a new session.
+The **Requests & responses** inspector keeps the last 100 callbacks per subscriber. Select any callback for request/response XML, HTTP status and latency. With **Capture 4Tax auth and registration API calls** enabled (the UI default), indented entries also show application-token acquisition, owner creation/PIN login, local JWT checks and business registration. Each has a request and response view with endpoint, redacted headers/body, status, duration and outcome. A failing API call is selected automatically. Normal field navigation makes no downstream API calls, and cached/replayed callbacks may have no new calls.
+
+API inspection posts the same XML to the configured callback's `/inspect` extension, protected by the same gateway key. The hosted callback allowlist is checked before deriving this fixed path; redirects remain disabled. Turn inspection off when testing other callbacks or an older USSD deployment. The handset still uses the enclosed Grapevine XML reply. The default UI HTTP timeout is 120 seconds for hosted cold starts; shorter options remain available for operator deadline tests.
+
+Callback PIN inputs are masked by default; Reveal PIN input affects the callback request inspector and Copy action. Downstream credentials, PINs, bearer tokens and personal fields are always redacted. Gateway credentials are never displayed. Requests, replies and credentials are held only in tab memory; downstream captures are not persisted on the server. Only test subscriber profiles are saved to browser storage; reloading requires entering the gateway key again and starting a new session.
 
 ## Generated identities
 
@@ -61,7 +65,7 @@ See [OpenAPI](openapi.yaml). No database, Redis or OAuth application credentials
 
 ## Verification
 
-`mvn verify` tests identity generation, XML formats and escaping, request replay, abort/timeout events, HTTP failures, redirects, response limits, stalled-body timeouts, and the web/API endpoints.
+`mvn verify` tests identity generation, XML formats and escaping, request replay, abort/timeout events, HTTP failures, redirects, response limits, stalled-body timeouts, API inspection and the web/API endpoints. `node --test scripts/test-traffic.cjs` tests the browser history and request/response selection.
 
 With USSD running and connected to the hosted auth/registration services, use `python3 scripts/smoke-test.py` for callback tests. It prompts for the gateway key without saving it, or accepts `GATEWAY_KEY` in the process environment. It tests generated identities, both languages, all five sector menus, replay and recovery, then aborts before capturing personal details or creating auth/business records. Optional `EMULATOR_URL` and `USSD_CALLBACK_URL` select other local test endpoints.
 

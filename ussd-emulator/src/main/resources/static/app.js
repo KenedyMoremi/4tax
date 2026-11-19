@@ -1,3 +1,4 @@
+import {trafficEntries, trafficPayload} from './traffic.js';
 const $ = id => document.getElementById(id);
 const storageKey = 'fourtax-emulator-subscribers-v1';
 let subscribers = [], selectedId, config, tab = 'request';
@@ -90,15 +91,10 @@ function render() {
   $('call-status').className = 'call-status' + (s.uncertain ? ' failed' : s.active ? ' active' : '');
   renderTraffic(); updateClock();
 }
-function visibleXml(trace, type) {
-  let text = type === 'request' ? trace.result.requestXml : trace.result.responseXml;
-  if (type === 'request' && trace.sensitive && !$('reveal-input').checked)
-    text = text.replace(/(<value>)[\s\S]*?(<\/value>)/, '$1[PIN hidden]$2');
-  return text || (type === 'response' ? 'No response body received.' : 'Request was not sent.');
-}
 function renderTraffic() {
   const s = state(selectedId);
-  $('exchange-count').textContent = s.traces.length + (s.traces.length === 1 ? ' exchange' : ' exchanges');
+  const entries = trafficEntries(s.traces);
+  $('exchange-count').textContent = s.traces.length + ' callbacks · ' + (entries.length - s.traces.length) + ' API checks';
   const latest = s.traces.at(-1);
   $('last-latency').textContent = latest ? latest.result.durationMs + ' ms' : 'Waiting for a call';
   $('traffic-list').replaceChildren();
@@ -106,19 +102,23 @@ function renderTraffic() {
     const empty = document.createElement('p'); empty.className = 'empty-traffic';
     empty.append('Each screen is a callback.',document.createElement('br'),'Your requests and responses appear here.'); $('traffic-list').append(empty);
   }
-  s.traces.forEach((trace,index) => {
-    const button = document.createElement('button'); button.className = 'traffic-row' + (index === s.selected ? ' selected' : ''); button.type = 'button';
+  entries.forEach(({index,apiIndex,label,status:code,durationMs,failed}) => {
+    const button = document.createElement('button'); button.className = 'traffic-row' + (apiIndex == null ? '' : ' traffic-api-row')
+      + (index === s.selected && apiIndex == s.selectedApi ? ' selected' : ''); button.type = 'button';
     const number = document.createElement('span'); number.className = 'traffic-index'; number.textContent = String(index + 1).padStart(2,'0');
-    const event = document.createElement('span'); event.className = 'traffic-event'; event.textContent = trace.result.event + (trace.replay ? ' · REPLAY' : '');
-    const status = document.createElement('span'); status.className = 'traffic-code' + (trace.result.errorCode ? ' failed' : '');
-    status.textContent = (trace.result.httpStatus || 'ERR') + ' · ' + trace.result.durationMs + ' ms';
-    button.append(number,event,status); button.onclick = () => { s.selected = index; renderTraffic(); }; $('traffic-list').append(button);
+    if (apiIndex != null) number.textContent = '↳';
+    const event = document.createElement('span'); event.className = 'traffic-event'; event.textContent = label;
+    const status = document.createElement('span'); status.className = 'traffic-code' + (failed ? ' failed' : '');
+    status.textContent = code + ' · ' + durationMs + ' ms';
+    button.append(number,event,status); button.onclick = () => { s.selected = index; s.selectedApi = apiIndex; renderTraffic(); }; $('traffic-list').append(button);
   });
   const trace = s.traces[s.selected];
-  $('payload').textContent = trace ? visibleXml(trace,tab) : 'No exchange selected.';
+  const call = s.selectedApi == null ? null : trace?.result.backendExchanges?.[s.selectedApi];
+  $('payload').textContent = trafficPayload(trace,tab,s.selectedApi,$('reveal-input').checked);
   $('copy-payload').disabled = !trace;
   $('replay').disabled = !s.lastRequest || s.busy;
-  $('payload-info').textContent = trace ? 'XML · ' + (tab === 'request' ? 'POST' : 'HTTP ' + trace.result.httpStatus) : 'XML · UTF-8';
+  $('payload-info').textContent = call ? 'JSON · ' + (tab === 'request' ? call.method : call.outcome)
+    : trace ? 'XML · ' + (tab === 'request' ? 'POST' : 'HTTP ' + trace.result.httpStatus) : 'XML · UTF-8';
   $('exchange-error').textContent = trace?.result.errorMessage || '';
   $('exchange-error').hidden = !trace?.result.errorMessage;
   for (const button of document.querySelectorAll('[data-tab]')) button.setAttribute('aria-selected', String(button.dataset.tab === tab));
@@ -129,7 +129,7 @@ function renderTraffic() {
 function connection() {
   return {callbackUrl:$('callback-url').value.trim(),gatewayHeader:$('gateway-header').value.trim(),gatewayKey:$('gateway-key').value,
     serviceCode:$('service-code').value.trim(),numberFormat:$('number-format').value,includeRequestId:$('include-request-id').checked,
-    timeoutSeconds:Number($('request-timeout').value),idleTimeout:Number($('idle-timeout').value)};
+    timeoutSeconds:Number($('request-timeout').value),idleTimeout:Number($('idle-timeout').value),inspectBackend:$('inspect-backend').checked};
 }
 async function exchange(id, event, input = '', replay = false) {
   const subscriber = subscribers.find(item => item.id === id); if (!subscriber) return;
@@ -161,6 +161,9 @@ async function exchange(id, event, input = '', replay = false) {
     s.traces.push({result,sensitive,replay});
     if (s.traces.length > 100) s.traces.shift();
     s.selected = s.traces.length - 1;
+    const failure = (result.backendExchanges || []).findIndex(call => !['OK','VERIFIED'].includes(call.outcome));
+    s.selectedApi = failure < 0 ? null : failure;
+    if (failure >= 0) tab = 'response';
     if (result.errorCode) {
       s.uncertain = true;
       s.prompt = result.errorMessage + '\n\nUse Replay request to retry this exchange.';

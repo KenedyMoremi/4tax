@@ -20,3 +20,6 @@ jobs:
           cache: maven
       - run: mvn -B verify
         working-directory: ${{ matrix.service }}
+      - if: matrix.service == 'ussd-emulator'
+        run: node --test scripts/test-traffic.cjs
+        working-directory: ussd-emulator

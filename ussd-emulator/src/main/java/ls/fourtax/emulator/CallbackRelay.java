@@ -10,11 +10,13 @@ import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.*;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.json.JsonMapper;
 
 @Service
 public class CallbackRelay {
     private final GrapevineCodec codec;
     private final EmulatorSettings settings;
+    private final JsonMapper json = JsonMapper.builder().build();
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(3))
             .followRedirects(HttpClient.Redirect.NEVER).build();
     public CallbackRelay(GrapevineCodec codec, EmulatorSettings settings) { this.codec = codec; this.settings = settings; }
@@ -26,17 +28,23 @@ public class CallbackRelay {
         if (allowed != null && !allowed.isBlank() && !original.equals(URI.create(allowed)))
             throw new IllegalArgumentException("This hosted emulator can only call its configured USSD callback.");
         URI effective = effective(original);
+        if (request.inspectBackend()) {
+            if (effective.getRawQuery() != null || !effective.getPath().endsWith("/ussd/callback/grapevine"))
+                throw new IllegalArgumentException("API inspection requires the 4Tax Grapevine callback without query parameters.");
+            effective = URI.create(effective.toString() + "/inspect");
+        }
         String key = Objects.requireNonNullElse(request.gatewayKey(), "");
         String header = Objects.requireNonNullElse(request.gatewayHeader(), "X-Gateway-Key");
         if (!header.matches("[A-Za-z][A-Za-z0-9-]{0,63}") || Set.of("host", "content-length", "content-type", "connection", "transfer-encoding", "upgrade", "accept").contains(header.toLowerCase(Locale.ROOT))
                 || key.length() > 4096 || key.chars().anyMatch(c -> c < 32 || c == 127))
             throw new IllegalArgumentException("Supply a valid gateway header and value without control characters.");
         var builder = HttpRequest.newBuilder(effective).timeout(Duration.ofSeconds(request.timeoutSeconds()))
-                .header("Content-Type", "application/xml; charset=UTF-8").header("Accept", "application/xml")
+                .header("Content-Type", "application/xml; charset=UTF-8").header("Accept", request.inspectBackend() ? "application/json" : "application/xml")
                 .POST(HttpRequest.BodyPublishers.ofString(xml, StandardCharsets.UTF_8));
         if (!key.isEmpty()) builder.header(header, key);
         long start = System.nanoTime();
         int status = 0; String responseXml = ""; Map<String, String> headers = new LinkedHashMap<>();
+        List<Map<String, Object>> backend = List.of();
         CompletableFuture<HttpResponse<byte[]>> pending = null;
         try {
             pending = http.sendAsync(builder.build(), ignored -> new LimitedBody());
@@ -46,10 +54,20 @@ public class CallbackRelay {
             responseXml = new String(response.body(), StandardCharsets.UTF_8);
             if (status < 200 || status >= 300) return reply(request, effective, xml, responseXml, status, start, headers, null, "HTTP_ERROR",
                     status == 401 || status == 403 ? "The callback rejected the request. Check its gateway header and key." : "The callback returned HTTP " + status + ".");
+            if (request.inspectBackend()) {
+                try {
+                    var inspection = json.readValue(responseXml, InspectionReply.class);
+                    responseXml = Objects.requireNonNull(inspection.responseXml());
+                    backend = Objects.requireNonNull(inspection.exchanges());
+                } catch (Exception error) {
+                    return reply(request, effective, xml, responseXml, status, start, headers, null, "INVALID_RESPONSE",
+                            "The callback did not return 4Tax API diagnostics. Disable API inspection for other gateways.");
+                }
+            }
             GatewayReply decoded;
             try { decoded = codec.decode(responseXml); }
             catch (IllegalArgumentException error) { return reply(request, effective, xml, responseXml, status, start, headers, null, "INVALID_RESPONSE", error.getMessage()); }
-            return reply(request, effective, xml, responseXml, status, start, headers, decoded, null, null);
+            return reply(request, effective, xml, responseXml, status, start, headers, decoded, null, null, backend);
         } catch (TimeoutException error) {
             return reply(request, effective, xml, responseXml, status, start, headers, null, "CALLBACK_TIMEOUT", "Callback timed out. Replay the same request to test recovery.");
         } catch (InterruptedException error) {
@@ -82,9 +100,13 @@ public class CallbackRelay {
     }
     private ExchangeReply reply(ExchangeRequest r, URI effective, String requestXml, String responseXml, int status, long start,
             Map<String, String> headers, GatewayReply decoded, String error, String message) {
+        return reply(r, effective, requestXml, responseXml, status, start, headers, decoded, error, message, List.of());
+    }
+    private ExchangeReply reply(ExchangeRequest r, URI effective, String requestXml, String responseXml, int status, long start,
+            Map<String, String> headers, GatewayReply decoded, String error, String message, List<Map<String, Object>> backend) {
         return new ExchangeReply(r.callbackUrl(), effective.toString(), r.sessionId(), r.requestId(), r.event().name(), r.timestamp(),
                 requestXml, responseXml, status, Duration.ofNanos(System.nanoTime() - start).toMillis(), decoded == null ? null : decoded.prompt(),
-                decoded == null ? null : decoded.state(), decoded == null ? null : decoded.responseType(), headers, error, message);
+                decoded == null ? null : decoded.state(), decoded == null ? null : decoded.responseType(), headers, error, message, backend);
     }
     private static final class BodyTooLarge extends RuntimeException {}
     private static final class LimitedBody implements HttpResponse.BodySubscriber<byte[]> {

@@ -23,6 +23,8 @@ The public callback deployed on Vercel is **https://4tax-ussd.vercel.app/ussd/ca
 
 Default callback port is 8080. `.env.example` describes service-local settings. Startup automatically generates a private `.env` and obtains application credentials from auth; no manual secret creation is required. Existing local credentials are retained when auth accepts them.
 
+Outbound auth, registration and JWKS calls use `BACKEND_CONNECT_TIMEOUT=5s` and `BACKEND_REQUEST_TIMEOUT=30s` by default to accommodate prototype Vercel cold starts. Configure positive durations up to 10s and 60s respectively. The Redis processing lease exceeds the bounded submission calls so a slow request cannot lose its lock after 30 seconds. These prototype budgets must be checked against the chosen MNO's real session deadlines.
+
 ## Registration journeys
 
 The five sectors are Transport, Services, E-Commerce, Retail and Agriculture. Their choices and fields are generated from the Django web forms into `registration-schema.json`; run `python manage.py export_registration_schema` at the repository root after changing those forms. CI checks for drift. See [field definitions and API setup](../docs/USSD_REGISTRATION.md).
@@ -55,6 +57,8 @@ If auth succeeds but business creation fails, keep the auth account and draft. R
 `POST /ussd/callback/grapevine` accepts `application/xml` or `text/xml` with `X-Gateway-Key` from this service's configuration. Examples: [initial](examples/initial.xml), [action](examples/action.xml), [abort](examples/abort.xml).
 
 The adapter implements published Grapevine v1.3 shapes. Replies contain `prompt`, `responseType=string` and `state=NextState|End`. Optional `requestId` enables reliable deduplication. Without a stable provider ID, repeated input cannot safely be distinguished from a legitimate next answer; account/entity side effects remain idempotent.
+
+The emulator can send the same XML to `POST /ussd/callback/grapevine/inspect` with the same gateway key. It returns `{responseXml, exchanges}` with each downstream call's stage, URL, redacted request headers/body, HTTP status, duration and redacted response. Signing-key HTTP requests include status and duration (public key bodies are omitted). Local owner-JWT verification is explicitly marked `LOCAL`. Credentials, PINs, tokens and personal fields are excluded; validation failures expose field names rather than arbitrary upstream error text. Captures exist only during that HTTP request, with no Redis or logging storage. Normal gateway XML remains unchanged, and deduplicated callbacks do not repeat downstream calls or reproduce an earlier trace.
 
 Vodacom Lesotho documents HTTP/XML integration. Grapevine is an initial prototype adapter, rather than a confirmed Vodacom or Econet Lesotho contract. Confirm each operator's payload, credentials, timeouts, encoding and limits before live activation, and configure a public HTTPS callback URL. The local Compose port binds to localhost.
 

@@ -73,7 +73,7 @@ public class GrapevineCodec {
             throw new IllegalArgumentException("Enter a USSD service code such as *123#.");
         if (r.input() == null || r.input().length() > 256 || r.input().chars().anyMatch(c -> c < 32 || c == 127))
             throw new IllegalArgumentException("Input must contain at most 256 characters without control characters.");
-        if (r.timeoutSeconds() < 1 || r.timeoutSeconds() > 30) throw new IllegalArgumentException("Callback timeout must be 1–30 seconds.");
+        if (r.timeoutSeconds() < 1 || r.timeoutSeconds() > 120) throw new IllegalArgumentException("Callback timeout must be 1–120 seconds.");
         try { Instant.parse(r.timestamp()); } catch (Exception e) { throw new IllegalArgumentException("A valid ISO timestamp is required."); }
     }
     static String normalize(String value) {
