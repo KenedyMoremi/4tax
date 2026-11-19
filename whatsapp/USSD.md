@@ -28,8 +28,10 @@ python manage.py migrate business_profiles 0003_ussd_transactions --plan
 python manage.py migrate business_profiles 0003_ussd_transactions
 ```
 
-Vercel preview builds do not run migrations. No production schema or transaction data is changed by local automated tests. The repository requires explicit confirmation before production database operations. If the new tables are absent, USSD transaction requests return `SERVICE_UNAVAILABLE`; existing registration and Twilio behavior remain available.
+The approved release now applies this target through the website’s existing `scripts/vercel_build.py` on `VERCEL=1` / `VERCEL_ENV=production` only. The `apply_ussd_schema` command uses Vercel’s existing database configuration, transaction-scoped advisory locking and an allowlisted forward plan. Known additive prerequisites can be applied if absent. It skips an already-applied target and never downgrades future schema versions. Failure stops publication. Preview builds and local tests never mutate production. This production step was authorized by the user for this release. If the new tables are absent, USSD transaction requests return `SERVICE_UNAVAILABLE`; existing registration and Twilio behavior remain available.
 
 Auth must also be deployed with owner lookup and the new owner-token scopes, followed by USSD. Existing owners log in again to obtain `businesses:read transactions:create`. No new application client credentials/scopes are required.
 
 Verification: `python manage.py test business_profiles.test_ussd_transactions whatsapp --settings=config.test_settings`. PostgreSQL row-lock tests use `config.registration_postgres_test_settings` and an explicitly disposable `REGISTRATION_TEST_DATABASE_URL`. AI/Twilio calls are mocked in tests. Sesotho prompts require fluent-speaker review before live use.
+
+`GET /api/v1/transactions/health` is a read-only release check returning only `ready`, `schemaReady` and `aiConfigured`. It checks the recorded migration, both tables and presence of the configured AI provider key without exposing secrets or making an AI call. It returns 503 until ready.

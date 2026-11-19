@@ -522,6 +522,20 @@
           }
         }
       }
+    },
+    "/api/v1/transactions/health": {
+      "get": {
+        "security": [],
+        "description": "Read-only deployment readiness; no records, identities, credentials or AI calls.",
+        "responses": {
+          "200": {
+            "description": "Schema and AI provider are configured"
+          },
+          "503": {
+            "description": "Schema or AI provider is unavailable"
+          }
+        }
+      }
     }
   },
   "components": {

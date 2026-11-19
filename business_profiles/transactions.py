@@ -7,12 +7,15 @@ from decimal import Decimal
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
-from django.db import DatabaseError, transaction
+from django.db import DatabaseError, transaction, connection
+from django.db.migrations.recorder import MigrationRecorder
 from django.http import JsonResponse
 from django.utils import timezone
 from django.views.decorators.debug import sensitive_variables
+from django.views.decorators.cache import never_cache
+from django.views.decorators.http import require_GET
 
-from agents.bookkeeping import AgentUnavailable, RecordIntent, interpret
+from agents.bookkeeping import AgentUnavailable, RecordIntent, interpret, provider_key
 from bookkeeping import agent_actions, services
 from bookkeeping.models import Business, money
 from .models import USSDLedger, USSDRegistration, USSDTransaction
@@ -23,6 +26,20 @@ SECTOR_FIELDS = {'transport': ['route', 'passengers', 'fareCost'],
                  'services': ['service', 'serviceCost'],
                  'ecommerce': ['goods', 'totalValue'], 'retail': ['goods', 'totalValue'],
                  'agriculture': ['goods', 'totalValue']}
+
+
+@never_cache
+@require_GET
+def transaction_health(request):
+    """Read-only release check: exposes no credentials, identities, records or database details."""
+    try:
+        recorded = MigrationRecorder(connection).migration_qs.filter(app='business_profiles', name='0003_ussd_transactions').exists()
+        schema = recorded and {USSDLedger._meta.db_table, USSDTransaction._meta.db_table}.issubset(connection.introspection.table_names())
+    except DatabaseError:
+        schema = False
+    configured = bool(provider_key())
+    return JsonResponse({'ready': schema and configured, 'schemaReady': schema, 'aiConfigured': configured},
+                        status=200 if schema and configured else 503)
 
 
 def ledger_for(registration):

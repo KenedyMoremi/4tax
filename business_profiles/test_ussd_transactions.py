@@ -179,6 +179,16 @@ class USSDTransactionTests(TestCase):
         self.assertEqual(self.post().json()['code'], 'TRANSACTION_BUSY')
         self.assertFalse(JournalEntry.objects.exists())
 
+    @override_settings(BOOKKEEPING_AI_PROVIDER='openai', OPENAI_API_KEY='private-test-key')
+    def test_read_only_release_health_reports_schema_and_provider_without_secrets(self):
+        response=self.client.get('/api/v1/transactions/health')
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(response.json(),{'ready':True,'schemaReady':True,'aiConfigured':True})
+        self.assertNotIn(b'private-test-key',response.content)
+        self.assertFalse(USSDLedger.objects.exists()); self.ai.assert_not_called()
+        with self.settings(OPENAI_API_KEY=''):
+            self.assertEqual(self.client.get('/api/v1/transactions/health').status_code,503)
+
 
 @skipUnless(connection.vendor == 'postgresql', 'Row-lock tests require PostgreSQL')
 @override_settings(REGISTRATION_AUTH_ISSUER='https://auth.example.test', REGISTRATION_AUTH_JWKS_URL='https://auth.example.test/oauth2/jwks')
