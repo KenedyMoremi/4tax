@@ -22,7 +22,7 @@ class LinkForm(forms.Form):
 
 
 def digest(code):
-    return salted_hmac('whatsapp-link', code, algorithm='sha256').hexdigest()
+    return salted_hmac('whatsapp-link', code, secret=settings.WHATSAPP_LINK_SECRET, algorithm='sha256').hexdigest()
 
 
 @transaction.atomic

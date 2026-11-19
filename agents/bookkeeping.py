@@ -1,4 +1,5 @@
 """Interpret text only. The model has no database access or posting tools."""
+import json
 from typing import Literal
 from django.conf import settings
 from openai import OpenAI, OpenAIError
@@ -38,7 +39,7 @@ account numbers, document numbers, dates or parties. Currency M/maloti/loti/LSL 
 Explicit other currencies are OTHER; never convert currencies. If no date is stated use the
 provided message date. For an invoice/bill, require a due date and customer/supplier name.
 For expense/sale/payment, require the payment account (cash, bank, M-Pesa or EcoCash).
-Use only provided account codes. Infer an expense category only when clear; otherwise ask.
+Use only provided account codes. payment_account and expense_account must contain the numeric code string, never the account name. Infer an expense category only when clear; otherwise ask.
 If VAT is not mentioned, set tax_rate to "0.00" and amount_basis to exclusive.
 If VAT is mentioned without an explicit percentage, ask for the rate. For VAT amounts,
 require clear inclusive/exclusive wording. Do not infer legal VAT eligibility.
@@ -58,6 +59,17 @@ def provider_key():
     return {'openai': settings.OPENAI_API_KEY, 'groq': settings.GROQ_API_KEY}.get(settings.BOOKKEEPING_AI_PROVIDER, '')
 
 
+def intent_schema(context):
+    schema = RecordIntent.model_json_schema()
+    trusted = json.loads(context)
+    for field, collection in [('payment_account', 'payment_accounts'), ('expense_account', 'expense_categories')]:
+        codes = [str(account['code']) for account in trusted.get(collection, [])]
+        if codes:
+            schema['properties'][field] = {'type': ['string', 'null'], 'enum': codes + [None],
+                                           'description': 'The account code, never its name. Null when unclear or not applicable.'}
+    return schema
+
+
 def interpret(message, *, context):
     if not provider_key():
         raise AgentUnavailable('ai_not_configured')
@@ -69,7 +81,7 @@ def interpret(message, *, context):
                     messages=[{'role': 'system', 'content': INSTRUCTIONS + '\nTrusted context: ' + context},
                               {'role': 'user', 'content': message}],
                     response_format={'type': 'json_schema', 'json_schema': {
-                        'name': 'bookkeeping_record', 'strict': True, 'schema': RecordIntent.model_json_schema()}},
+                        'name': 'bookkeeping_record', 'strict': True, 'schema': intent_schema(context)}},
                     reasoning_effort='low', max_completion_tokens=2000,
                 )
             if not result.choices or result.choices[0].finish_reason != 'stop' or not result.choices[0].message.content:

@@ -321,3 +321,19 @@ class WhatsAppTests(TestCase):
         ai.assert_not_called()
         self.assertContains(self.signed(), 'provider has changed')
         self.assertContains(self.client.get(reverse('whatsapp_setup')), 'Twilio and Groq')
+
+    def test_groq_schema_limits_accounts_to_workspace_codes(self):
+        import json
+        from agents.bookkeeping import intent_schema
+        schema = intent_schema(json.dumps({'payment_accounts':[{'code':'1020','name':'M-Pesa'}], 'expense_categories':[{'code':'5300','name':'Transport'}]}))
+        self.assertEqual(schema['properties']['payment_account']['enum'], ['1020', None])
+        self.assertEqual(schema['properties']['expense_account']['enum'], ['5300', None])
+
+    @override_settings(WHATSAPP_LINK_SECRET='dedicated-test-link-secret')
+    def test_dedicated_link_secret_is_independent_of_django_signing_key(self):
+        from .linking import digest
+        before = digest('test-code')
+        with override_settings(SECRET_KEY='different-worker-secret'):
+            self.assertEqual(digest('test-code'), before)
+        with override_settings(WHATSAPP_LINK_SECRET='rotated-link-secret'):
+            self.assertNotEqual(digest('test-code'), before)

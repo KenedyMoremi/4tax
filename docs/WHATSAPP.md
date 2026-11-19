@@ -17,6 +17,7 @@ TWILIO_WEBHOOK_URL=https://4tax.vercel.app/webhooks/twilio/whatsapp/
 BOOKKEEPING_AI_PROVIDER=groq
 GROQ_API_KEY=REPLACE_WITH_API_KEY
 GROQ_BOOKKEEPING_MODEL=openai/gpt-oss-20b
+WHATSAPP_LINK_SECRET=REPLACE_WITH_LONG_RANDOM_SECRET
 ```
 
 Use the exact Sandbox sender number from Twilio Console. Use the account SID/auth token for that Sandbox. The webhook URL must exactly match Twilio's configured URL (including scheme, hostname, path and trailing slash). The application verifies Twilio's signature, account and destination. A local development tunnel needs its hostname in `DJANGO_ALLOWED_HOSTS` and correctly configured HTTPS handling; never disable signature verification to troubleshoot a tunnel.
@@ -40,7 +41,7 @@ python manage.py process_whatsapp
 python manage.py process_whatsapp --once --limit 10
 ```
 
-For Sandbox testing, run this command on your computer using the same Neon `DATABASE_URL` and `DJANGO_SECRET_KEY` as the web application, together with the provider variables above. Linking-code hashes require the same Django secret. Keep the computer and process running while testing. For continuous availability, deploy the command to a persistent worker host with process supervision. Vercel Hobby does not run this persistent process; this implementation does not use threads after an HTTP response or promise instant replies without a worker. Groq and Twilio usage are billed independently of Vercel hosting.
+For Sandbox testing, run this command on your computer using the same Neon `DATABASE_URL` as the web application and the same dedicated `WHATSAPP_LINK_SECRET`, together with the provider variables above. Linking-code hashes use that dedicated secret; the worker does not need the production Django signing key. If the dedicated secret is omitted, the legacy fallback uses the Django secret. Changing either active link secret invalidates unverified codes. Keep the computer and process running while testing. For continuous availability, deploy the command to a persistent worker host with process supervision. Vercel Hobby does not run this persistent process; this implementation does not use threads after an HTTP response or promise instant replies without a worker. Groq and Twilio usage are billed independently of Vercel hosting.
 
 The web process needs the Twilio settings and enabled flag. The Groq key is required only on the worker. `BOOKKEEPING_AI_PROVIDER` must match in the web and worker environments. OpenAI remains available by selecting `openai` and setting `OPENAI_API_KEY` and `OPENAI_BOOKKEEPING_MODEL`. Provider changes require owners to relink their numbers and consent again. Restart the worker after code/configuration changes. Run exactly one worker for the Sandbox: sends are spaced at least three seconds apart using persisted attempt times. Claims and business-level transactions protect concurrent processing, but production PostgreSQL concurrency should be exercised on a disposable database before scaling workers; a shared sender-rate lock would also be needed.
 
