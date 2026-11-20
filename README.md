@@ -170,3 +170,9 @@ The main workspace and independently hosted USSD emulator support PWA installati
 Use **Install app** at the bottom of either site. Business operations still require
 an internet connection; private records are not cached offline.
 See [PWA installation and update behaviour](docs/PWA.md).
+
+### Business recommendations
+
+Open **Recommendations** for a practical action plan based on your own recent
+business records. The agent uses a separate Groq key and sends only aggregate
+metrics after owner consent. See [configuration and data handling](docs/RECOMMENDATIONS.md).

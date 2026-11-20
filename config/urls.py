@@ -14,5 +14,6 @@ urlpatterns = [
     path('', include('business_profiles.urls')),
     path('', include('bookings.urls')),
     path('', include('pos.urls')),
+    path('', include('recommendations.urls')),
     path('', include('bookkeeping.urls')),
 ]
