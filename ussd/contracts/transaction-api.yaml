@@ -60,6 +60,75 @@
                         "format": "uuid"
                       },
                       "sector": {
+                        "enum": [
+                          "transport",
+                          "services",
+                          "ecommerce",
+                          "retail",
+                          "agriculture"
+                        ]
+                      },
+                      "fields": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "summary",
+                          "paymentDetails",
+                          "buyer"
+                        ],
+                        "properties": {
+                          "summary": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256,
+                            "description": "Complete sale summary, including an explicit total or quantity and price per unit. Example: sold 2 weaves worth M1800 each."
+                          },
+                          "paymentDetails": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256,
+                            "description": "Paid account (cash, bank, M-Pesa, EcoCash), or explicitly unpaid with a due date."
+                          },
+                          "buyer": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 256,
+                            "description": "Buyer full names; N/A is allowed only for a paid sale."
+                          }
+                        }
+                      },
+                      "language": {
+                        "enum": [
+                          "en",
+                          "st"
+                        ]
+                      }
+                    },
+                    "description": "Preferred three-answer capture. Legacy sector-specific alternatives remain supported for in-flight operations."
+                  },
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "channel",
+                      "action",
+                      "entityId",
+                      "sector",
+                      "fields",
+                      "language"
+                    ],
+                    "properties": {
+                      "channel": {
+                        "const": "USSD"
+                      },
+                      "action": {
+                        "const": "propose"
+                      },
+                      "entityId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "sector": {
                         "const": "transport"
                       },
                       "fields": {

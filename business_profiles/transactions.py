@@ -81,8 +81,9 @@ def clean_payload(payload, registration):
         return None
     sector = registration.payload['sector']
     fields = payload.get('fields')
-    names = SECTOR_FIELDS.get(sector, []) + ['paymentDetails', 'buyer']
-    if payload.get('sector') != sector or payload.get('language') not in ['en', 'st'] or not isinstance(fields, dict) or set(fields) != set(names):
+    legacy_names = SECTOR_FIELDS.get(sector, []) + ['paymentDetails', 'buyer']
+    if (payload.get('sector') != sector or payload.get('language') not in ['en', 'st']
+            or not isinstance(fields, dict) or set(fields) not in [set(legacy_names), {'summary', 'paymentDetails', 'buyer'}]):
         return None
     if any(not isinstance(value, str) or not value.strip() or len(value) > 256
            or any(ord(c) < 32 or ord(c) == 127 for c in value) for value in fields.values()):
@@ -137,11 +138,27 @@ def ussd_webhook(request):
             item.save()
             claim = item.claim_token
         # No database lock is held while waiting on the AI provider. A lease bounds recovery after a lost worker.
+        captured = payload['fields']
+        ai_fields = dict(captured) if 'summary' in captured else {
+            'summary': '; '.join(name + ': ' + captured[name] for name in SECTOR_FIELDS[payload['sector']]),
+            'paymentDetails': captured['paymentDetails'], 'buyer': captured['buyer']}
+        if 'summary' in captured:
+            account = {'cash': 'cash', 'bank': 'bank', 'm-pesa': 'M-Pesa', 'mpesa': 'M-Pesa',
+                       'm pesa': 'M-Pesa', 'ecocash': 'EcoCash', 'eco cash': 'EcoCash'}.get(captured['paymentDetails'].strip().casefold())
+            if account:
+                # A bare account is an explicit choice on the paid-account screen.
+                ai_fields['paymentDetails'] = 'paid in ' + account
         message = ('Prepare ONE sale or unpaid sales invoice from these USSD fields. Do not post it. '
-                   'For transport, fareCost must specify per passenger or total; ask for clarification if ambiguous. '
-                   'Do not infer payment status or account. Buyer N/A is permitted for a paid sale, not an unpaid invoice.\n'
+                   'The summary is the complete sale instruction, including amounts or quantities and unit prices. '
+                   'For transport, the summary (or legacy fareCost) must specify per passenger or total when needed. '
+                   'Use all three answers together: summary, paymentDetails and buyer. '
+                   'If the answers conflict, ask for clarification. '
+                   'The payment screen asks for a PAID account (cash, bank, M-Pesa, EcoCash), '
+                   'or explicit unpaid status and due date. A bare account name on this screen selects a paid sale. '
+                   'For other payment text, require explicit paid/unpaid status. Never guess an unstated account or due date. '
+                   'Buyer N/A is permitted for a paid sale, not an unpaid invoice.\n'
                    'Keep the description in the selected language (en=English, st=Sesotho).\n'
-                   + json.dumps({'sector': payload['sector'], 'fields': payload['fields'], 'language': payload['language']}, ensure_ascii=False))
+                   + json.dumps({'sector': payload['sector'], 'fields': ai_fields, 'language': payload['language']}, ensure_ascii=False))
         try:
             intent = RecordIntent.model_validate(interpret(message, context=agent_actions.context_for(business, timezone.localdate(item.created_at)))).model_dump()
         except (AgentUnavailable, ValueError):
@@ -158,6 +175,8 @@ def ussd_webhook(request):
                 return error(422, 'CLARIFICATION_REQUIRED')
             if payload['fields']['buyer'].strip().lower() == 'n/a':
                 intent['contact_name'] = 'N/A'
+            else:
+                intent['contact_name'] = payload['fields']['buyer'].strip()
             try:
                 proposal = agent_actions.propose(business=business, owner=business.owner, source_key='ussd:' + item.id.hex, data=intent)
             except ValidationError:

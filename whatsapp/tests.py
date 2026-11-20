@@ -328,6 +328,10 @@ class WhatsAppTests(TestCase):
         schema = intent_schema(json.dumps({'payment_accounts':[{'code':'1020','name':'M-Pesa'}], 'expense_categories':[{'code':'5300','name':'Transport'}]}))
         self.assertEqual(schema['properties']['payment_account']['enum'], ['1020', None])
         self.assertEqual(schema['properties']['expense_account']['enum'], ['5300', None])
+        self.assertEqual(set(schema['required']), set(schema['properties']))
+        self.assertIn('quantity', schema['properties'])
+        self.assertIn('unit_price', schema['properties'])
+        self.assertNotIn('default', schema['properties']['quantity'])
 
     @override_settings(WHATSAPP_LINK_SECRET='dedicated-test-link-secret')
     def test_dedicated_link_secret_is_independent_of_django_signing_key(self):

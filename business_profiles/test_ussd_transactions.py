@@ -2,6 +2,7 @@ import json
 import time
 import uuid
 from datetime import timedelta
+from decimal import Decimal
 from concurrent.futures import ThreadPoolExecutor
 from threading import Event
 from unittest import skipUnless
@@ -88,6 +89,45 @@ class USSDTransactionTests(TestCase):
             self.assertTrue(Document.objects.get(business=ledger.business).notes.startswith('Confirmed via USSD'))
         self.assertEqual(USSDLedger.objects.count(), 5)
         self.assertEqual(len(set(USSDLedger.objects.values_list('business__owner_id', flat=True))), 5)
+
+    def test_three_answer_summary_is_accepted_in_every_sector(self):
+        for sector in ('transport', 'services', 'ecommerce', 'retail', 'agriculture'):
+            entity = self.entity(sector)
+            payload = self.payload(entity)
+            payload['fields'] = {'summary': 'Sold goods or services for M100 total', 'paymentDetails': 'cash', 'buyer': 'Test Buyer'}
+            self.ai.return_value = self.intent(contact_name='Incorrect model name')
+            response = self.post(payload, key='summary-' + sector)
+            self.assertEqual(response.status_code, 200, response.content)
+            self.assertEqual(response.json()['preview']['buyer'], 'Test Buyer')
+            self.assertIn('summary', self.ai.call_args.args[0])
+            self.assertIn('paid in cash', self.ai.call_args.args[0])
+        self.assertFalse(JournalEntry.objects.exists())
+
+    def test_quantity_times_unit_price_is_calculated_before_preview_and_confirmation(self):
+        payload = self.payload()
+        payload['fields'] = {'summary': 'sold 2 weaves worth M1800 each', 'paymentDetails': 'cash', 'buyer': 'Test Buyer'}
+        self.ai.return_value = self.intent(amount=None, quantity='2', unit_price='1800.00', description='2 weaves at M1800 each')
+        preview = self.post(payload).json()
+        self.assertEqual(preview['status'], 'pending')
+        self.assertEqual(Decimal(preview['preview']['total']), Decimal('3600.00'))
+        self.assertEqual(preview['preview']['buyer'], 'Test Buyer')
+        self.assertFalse(JournalEntry.objects.exists())
+        self.assertEqual(self.resolve(preview).json()['status'], 'posted')
+        self.assertEqual(Document.objects.get().total, Decimal('3600.00'))
+        self.assertEqual(Payment.objects.get().amount, Decimal('3600.00'))
+        self.assertEqual(USSDTransaction.objects.get().payload['fields']['paymentDetails'], 'cash')
+
+    def test_conflicting_totals_and_incomplete_unit_prices_require_editing(self):
+        payload = self.payload()
+        payload['fields'] = {'summary': '2 weaves M1800 each', 'paymentDetails': 'paid in cash', 'buyer': 'Test Buyer'}
+        for index, fields in enumerate([{'amount': '1800.00', 'quantity': '2', 'unit_price': '1800'},
+                                        {'amount': None, 'quantity': '2', 'unit_price': None},
+                                        {'amount': None, 'quantity': '2', 'unit_price': '-1800'}]):
+            self.ai.return_value = self.intent(**fields)
+            response = self.post(payload, key='unit-clarify-' + str(index))
+            self.assertEqual(response.status_code, 422, response.content)
+            self.assertEqual(response.json()['code'], 'CLARIFICATION_REQUIRED')
+        self.assertFalse(JournalEntry.objects.exists())
 
     def test_retries_reuse_proposal_and_post_only_once(self):
         first = self.post().json()

@@ -1,9 +1,11 @@
 """Interpret text only. The model has no database access or posting tools."""
 import json
+import re
+from decimal import Decimal, InvalidOperation
 from typing import Literal
 from django.conf import settings
 from openai import OpenAI, OpenAIError
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, model_validator
 
 
 class AgentUnavailable(Exception):
@@ -25,6 +27,30 @@ class RecordIntent(BaseModel):
     amount_basis: Literal['inclusive', 'exclusive', 'unspecified']
     document_number: str | None
     question: str | None
+    quantity: str | None = None
+    unit_price: str | None = None
+
+    @model_validator(mode='after')
+    def calculate_explicit_unit_prices(self):
+        if self.action not in ('sale', 'invoice') or (self.quantity is None and self.unit_price is None):
+            return self
+        try:
+            if not re.fullmatch(r'[0-9]{1,12}(\.[0-9]{1,4})?', self.quantity or ''):
+                raise ValueError()
+            if not re.fullmatch(r'[0-9]{1,12}(\.[0-9]{1,2})?', self.unit_price or ''):
+                raise ValueError()
+            quantity, price = Decimal(self.quantity), Decimal(self.unit_price)
+            total = quantity * price
+            rounded = total.quantize(Decimal('0.01'))
+            if quantity <= 0 or price <= 0 or total != rounded or total >= Decimal('1000000000000'):
+                raise ValueError()
+            if self.amount is not None and Decimal(self.amount) != rounded:
+                raise ValueError()
+            self.amount = format(rounded, '.2f')
+        except (InvalidOperation, ValueError):
+            self.action = 'clarify'
+            self.question = 'Please clarify the quantity, unit price and total.'
+        return self
 
 
 INSTRUCTIONS = '''You interpret one bookkeeping instruction for a business in Lesotho.
@@ -36,6 +62,12 @@ Actions: expense = already paid purchase; sale = already received sale; invoice 
 bill = unpaid purchase; payment = payment against an existing invoice or bill number.
 Amounts must be decimal strings with at most two places; do not guess amounts, tax rates,
 account numbers, document numbers, dates or parties. Currency M/maloti/loti/LSL is LSL.
+For an explicit quantity and per-item price, extract quantity and unit_price as decimal
+strings, for example "sold 2 weaves worth M1800 each" means quantity "2", unit_price
+"1800.00". Leave amount null unless the caller also explicitly states a total. The
+application calculates quantity times unit_price. Preserve quantity and price in the
+description. If only a total is given, use amount and leave quantity/unit_price null.
+Never treat a per-item price as the total or guess a missing quantity/unit price.
 Explicit other currencies are OTHER; never convert currencies. If no date is stated use the
 provided message date. For an invoice/bill, require a due date and customer/supplier name.
 For expense/sale/payment, require the payment account (cash, bank, M-Pesa or EcoCash).
@@ -61,6 +93,10 @@ def provider_key():
 
 def intent_schema(context):
     schema = RecordIntent.model_json_schema()
+    # Strict provider schemas require every property, including nullable optional extractions.
+    schema['required'] = list(schema['properties'])
+    for field in schema['properties'].values():
+        field.pop('default', None)
     trusted = json.loads(context)
     for field, collection in [('payment_account', 'payment_accounts'), ('expense_account', 'expense_categories')]:
         codes = [str(account['code']) for account in trusted.get(collection, [])]
