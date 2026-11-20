@@ -1,6 +1,7 @@
 package ls.fourtax.ussd.callback;
 
 import static ls.fourtax.ussd.callback.Callback.*;
+import static ls.fourtax.ussd.journey.State.NAVIGATION_VERSION;
 import java.util.Objects;
 import ls.fourtax.ussd.journey.*;
 import ls.fourtax.ussd.journey.State.*;
@@ -32,14 +33,14 @@ public class SessionCoordinator {
     }
     private Reply process(Callback callback, String mobile, String callerKey, String key) {
         String requestKey = callback.requestId() == null || callback.requestId().isBlank() ? null
-                : key + ":nav2:" + crypto.digest(callback.requestId());
+                : key + ":nav" + NAVIGATION_VERSION + ":" + crypto.digest(callback.requestId());
         if (requestKey != null) {
             String cached = store.cached(requestKey);
             if (cached != null) return json.readValue(cached, Reply.class);
         }
         Session session = callback.event() == Event.START ? new Session(mobile) : store.session(key);
         if (session == null) return new Reply(messages.text("en", "error.sessionExpired"), true);
-        if (session.navigationVersion != 2) {
+        if (session.navigationVersion != NAVIGATION_VERSION) {
             session.clearAuthentication(); store.deleteSession(key);
             return new Reply(messages.text(session.language,"error.navigationUpdated"),true);
         }

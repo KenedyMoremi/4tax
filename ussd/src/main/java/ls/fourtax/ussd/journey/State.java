@@ -4,6 +4,7 @@ import java.util.*;
 import ls.fourtax.ussd.api.Contracts.*;
 
 public final class State {
+    public static final int NAVIGATION_VERSION=3;
     private State() {}
     public static final class Session {
         public int navigationVersion;
@@ -32,7 +33,7 @@ public final class State {
         @com.fasterxml.jackson.annotation.JsonIgnore
         public String storageKey;
         public Session() {}
-        public Session(String mobile) { this.mobile = mobile; this.navigationVersion = 2; }
+        public Session(String mobile) { this.mobile = mobile; this.navigationVersion = NAVIGATION_VERSION; }
         public void clearAuthentication() { token = null; ownerId = null; tokenExpiry = 0; clearPin(); }
         public void clearPin() { pinDigest = null; pinNonce = null; }
     }

@@ -48,7 +48,7 @@ Every prompt, validation message and outcome has English and Sesotho wording in 
 
 ## Sessions, recovery and retries
 
-Redis retains unfinished drafts for 15 minutes after the last meaningful update. Opening registration or selecting a business without entering an answer does not create a resumable draft. Navigation version 2 ends older active sessions with a redial message, preserving drafts, operation keys and receipts; cached replies are versioned too. Invalid input and pagination do not extend the draft. Ending a session clears its authenticated context. A returning owner must log in before resuming once account creation has begun.
+Redis retains unfinished drafts for 15 minutes after the last meaningful update. Opening registration or selecting a business without entering an answer does not create a resumable draft. Navigation version 3 ends older active sessions with a redial message, preserving drafts, operation keys and receipts; cached replies are versioned too. Invalid input and pagination do not extend the draft. Ending a session clears its authenticated context. A returning owner must log in before resuming once account creation has begun.
 
 Drafts exclude PIN values and bearer tokens. Active sessions can contain a short-lived JWT and a temporary keyed digest for PIN confirmation. Raw PINs are never stored in Redis. Data keys are keyed digests of caller/session identifiers.
 
@@ -103,3 +103,5 @@ Transaction drafts are retained in Redis for 15 minutes. Ending a call removes a
 The emulator inspector shows owner-lookup, list-businesses and transaction-webhook entries. Transaction field values and proposal summaries are redacted in diagnostics. The API contract is local to this service at [transaction-api.yaml](contracts/transaction-api.yaml); the Django producer documents its adapter separately in [whatsapp/USSD.md](../whatsapp/USSD.md).
 
 A definite clarification response saves the new operation ID and editable stage before returning, including retry/resume branches. Repeated clarification no longer causes a session/draft operation mismatch. Clarification opens a compact three-field editing menu.
+
+Version 3 also invalidates active pre-update transaction screens: a prior `9. Next` reply cannot be interpreted as confirmation of a newly compacted preview. Drafts and operation keys remain recoverable after redial and login.

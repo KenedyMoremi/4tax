@@ -40,6 +40,15 @@ class TransactionJourneyTest {
         d.input("9"); assertTrue(d.state().page>0); d.input("8"); assertEquals("TX_EDIT",d.state().node);
         assertTrue(d.backend.postedTransactions.isEmpty());
     }
+    @Test void anOldNextPageCallbackCannotConfirmTheNewShorterPreviewAfterAnUpgrade() {
+        var d=login("retail","1"); d.input("2"); capture(d); var old=d.state();
+        String operation=old.transaction.operationId; old.navigationVersion=2; old.page=0;
+        d.store.saveSession(d.crypto.digest("test:TEST:"+d.sessionId+":"+d.mobile),old);
+        d.input("9"); assertTrue(d.last.end()); assertTrue(d.last.message().contains("Navigation has changed"));
+        assertTrue(d.backend.postedTransactions.isEmpty()); assertEquals(operation,d.store.transaction(d.crypto.digest(d.mobile)).operationId);
+        d.start(); d.steps("1","001234","2","9"); assertEquals("TX_PREVIEW",d.state().node);
+        assertTrue(d.backend.postedTransactions.isEmpty()); d.advance(); assertEquals("TX_DONE",d.state().node);
+    }
     Driver login(String sector,String language) {
         var d=new Driver(new MemoryStore(),new FakeBackend()); d.backend.pins.put(d.mobile,"001234");
         d.backend.ownedBusinesses.add(new BusinessSummary("business-1","4TAX-TEST0001",sector,"Test business"));
