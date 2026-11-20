@@ -33,7 +33,7 @@ Content-Type: application/json
 }
 ```
 
-Use the options endpoint for each sector's exact field names and permitted values. `owner.fullNames` and `owner.idNumber`, `details`, `employees` and `source` are required for every sector. `businessName` is optional. National identity numbers must be strings to preserve leading zeros; they are self-reported, not verified with an identity authority. All registrations require location and monthly turnover. `other_description` is required when Other is selected.
+Use the options endpoint for each sector's exact field names and permitted values. `details`, `employees` and `source` are required for every sector. `businessName` is optional. Initial USSD registration collects `owner.fullNames` and `owner.idNumber`; adding a business after login omits the entire `owner` object. The API always derives ownership from the verified JWT issuer and subject, so personal details do not need to be submitted again. If `owner` is supplied, both fields must be valid strings; an empty, partial or null object is rejected. National identity numbers preserve leading zeros; they are self-reported, not verified with an identity authority. All registrations require location and monthly turnover. `other_description` is required when Other is selected.
 
 Transport additionally requires `routes: [{"origin":"Example A","destination":"Example B","price":"25.50"}]`, a transport type, VIN, license plate and working hours. Services require service type, price range and hours. Working days are strings such as `Monday`; times use `HH:MM` and `overnight` is a boolean. Retail and e-commerce require purchase and selling price bands, with shipping/logistics also required for e-commerce.
 

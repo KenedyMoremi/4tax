@@ -10,7 +10,7 @@ def validate_registration(payload):
     if not isinstance(sector, str) or sector not in SECTORS:
         return {'sector': 'Choose transport, services, ecommerce, retail or agriculture.'}
     owner, details, source = (payload.get(key) for key in ('owner', 'details', 'source'))
-    if not isinstance(owner, dict) or set(owner) != {'fullNames', 'idNumber'}:
+    if 'owner' in payload and (not isinstance(owner, dict) or set(owner) != {'fullNames', 'idNumber'}):
         errors['owner'] = 'Supply fullNames and idNumber.'
     if not isinstance(details, dict):
         errors['details'] = 'Expected an object.'
@@ -32,6 +32,8 @@ def validate_registration(payload):
         else:
             errors[key] = 'Use strings, integers, booleans or a list of choices; decimal amounts must be strings.'
     for source_key, field in [('fullNames', 'owner_full_name'), ('idNumber', 'owner_id_number')]:
+        if owner is None:
+            continue
         if not isinstance(owner.get(source_key), str):
             errors['owner.' + source_key] = 'Expected a string.'
         else:
@@ -61,6 +63,11 @@ def validate_registration(payload):
     if errors:
         return errors
     forms = ProfileForms(sector, data)
+    if 'owner' not in payload:
+        # The bearer endpoint already derives ownership from the verified issuer/subject.
+        # Keep validating supplied identity data, but do not collect it again after login.
+        for field in ('owner_full_name', 'owner_id_number'):
+            forms.identity.fields[field].required = False
     if not forms.is_valid():
         for prefix, form in [('owner', forms.identity), ('details', forms.main)]:
             for field, messages in form.errors.items():

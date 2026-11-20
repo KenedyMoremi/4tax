@@ -79,6 +79,45 @@ class RegistrationAPITests(TestCase):
             saved = USSDRegistration.objects.get(pk=response.json()['entityId'])
             self.assertEqual(saved.payload['employees'][0]['salary_range'], 'below_500')
 
+    def test_authenticated_business_registration_can_omit_owner_details_in_every_sector(self):
+        for sector in ('transport', 'services', 'ecommerce', 'retail', 'agriculture'):
+            with self.subTest(sector=sector):
+                payload = self.payload(sector)
+                del payload['owner']
+                response = self.post(payload, key='logged-in-' + sector)
+                self.assertEqual(response.status_code, 201, response.content)
+                saved = USSDRegistration.objects.get(pk=response.json()['entityId'])
+                self.assertEqual(saved.owner_subject, uuid.UUID(self.subject))
+                self.assertEqual(saved.issuer, self.claims['iss'])
+                self.assertEqual(saved.payload, payload)
+                retry = self.post(payload, key='logged-in-' + sector)
+                self.assertEqual(retry.status_code, 200)
+                self.assertEqual(retry.json(), response.json())
+                self.assertEqual(self.post(self.payload(sector), key='logged-in-' + sector).status_code, 409)
+
+    def test_omitting_owner_details_preserves_authentication_and_business_validation(self):
+        payload = self.payload('agriculture')
+        del payload['owner']
+        self.assertEqual(self.client.post('/api/v1/businesses', data=json.dumps(payload),
+                                         content_type='application/json', HTTP_IDEMPOTENCY_KEY='test').status_code, 401)
+        self.assertEqual(self.post(payload, claims=self.claims | {'kind': 'application'}).status_code, 403)
+        payload['livestock'] = []
+        self.assertEqual(self.post(payload).status_code, 422)
+        payload = self.payload()
+        del payload['owner']
+        payload['details']['location'] = ''
+        self.assertEqual(self.post(payload).status_code, 422)
+        self.assertFalse(USSDRegistration.objects.exists())
+
+    def test_supplied_owner_details_still_require_both_valid_fields(self):
+        for owner in (None, {}, {'fullNames': 'Test Owner'}, {'fullNames': '', 'idNumber': '000001'},
+                      {'fullNames': 'Test Owner', 'idNumber': 1}):
+            with self.subTest(owner=owner):
+                payload = self.payload()
+                payload['owner'] = owner
+                self.assertEqual(self.post(payload).status_code, 422)
+        self.assertFalse(USSDRegistration.objects.exists())
+
     def test_retry_and_owner_scope(self):
         original = self.post()
         self.assertEqual(self.post().status_code, 200)
