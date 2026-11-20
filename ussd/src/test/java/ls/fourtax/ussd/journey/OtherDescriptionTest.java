@@ -33,7 +33,7 @@ class OtherDescriptionTest {
                 assertFalse(new NodeRouter().fields(d.state().draft).contains("other_description"));
                 d.lastPage(); d.input("1"); assertFalse(screenText(d).contains("Other")); d.input("8");
                 assertEquals(0, d.backend.creations); assertTrue(d.backend.attempts.isEmpty());
-                d.advance(); d.steps("012345", "012345"); assertTrue(d.last.end());
+                d.advance(); d.steps("012345", "012345"); assertFalse(d.last.end()); assertEquals("REG_DONE",d.state().node);
                 assertEquals("", d.backend.saved.values().iterator().next().details().get("other_description"));
             }
         }
@@ -50,7 +50,7 @@ class OtherDescriptionTest {
             d.input("Synthetic other activity"); assertEquals(nextPrice(sector), d.state().node);
             d.fillToReview(); assertTrue(new NodeRouter().fields(d.state().draft).contains("other_description"));
             assertTrue(screenText(d).contains("Synthetic other activity"));
-            d.advance(); d.steps("012345", "012345"); assertTrue(d.last.end());
+            d.advance(); d.steps("012345", "012345"); assertFalse(d.last.end()); assertEquals("REG_DONE",d.state().node);
             assertEquals("Synthetic other activity", d.backend.saved.values().iterator().next().details().get("other_description"));
         }
     }
@@ -90,7 +90,7 @@ class OtherDescriptionTest {
         var legacy = new BusinessRegistration(original.sector(), original.owner(), details, original.employees(), original.routes(), original.livestock(), original.source());
         d.backend.saved.put(operation, legacy); session.draft.answers.put("other_description", "Legacy irrelevant text"); saveSession(d, session);
         d.input("0"); d.start(); d.steps("1", "012345", "1", "9");
-        assertTrue(d.last.end()); assertEquals(legacy, d.backend.saved.get(operation));
+        assertFalse(d.last.end()); assertEquals("REG_DONE",d.state().node); assertEquals(legacy, d.backend.saved.get(operation));
         assertEquals(d.backend.attempts.getFirst(), d.backend.attempts.getLast()); assertEquals(1, d.backend.creations);
     }
     @Test void protectedDraftIsNotRewrittenBeforeItsOwnerLogsIn() {

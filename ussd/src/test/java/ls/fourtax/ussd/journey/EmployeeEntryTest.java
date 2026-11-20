@@ -34,7 +34,7 @@ class EmployeeEntryTest {
             d.input("1"); assertEquals("FIELD:employees.name", d.state().node);
             d.steps("Second Employee", "1", "9"); assertEquals("REVIEW", d.state().node);
             assertEquals(0, d.backend.creations); assertTrue(d.backend.attempts.isEmpty());
-            d.advance(); d.steps("012345", "012345"); assertTrue(d.last.end());
+            d.advance(); d.steps("012345", "012345"); assertFalse(d.last.end()); assertEquals("REG_DONE",d.state().node);
             var employees = d.backend.saved.values().iterator().next().employees();
             assertEquals(2, employees.size());
             assertEquals(Map.of("name", "First Employee", "salary_range", "20000_plus"), employees.getFirst());
@@ -44,7 +44,7 @@ class EmployeeEntryTest {
     @Test void aBusinessWithoutEmployeesCanContinueFromTheNamePrompt() {
         for (String sector : List.of("1", "2", "3", "4", "5")) {
             var d = employeeEntry("1", sector); d.input("7"); assertEquals("REVIEW", d.state().node);
-            d.advance(); d.steps("012345", "012345"); assertTrue(d.last.end());
+            d.advance(); d.steps("012345", "012345"); assertFalse(d.last.end()); assertEquals("REG_DONE",d.state().node);
             assertTrue(d.backend.saved.values().iterator().next().employees().isEmpty());
         }
     }

@@ -4,7 +4,7 @@ import java.util.*;
 import ls.fourtax.ussd.api.Contracts.*;
 
 public final class State {
-    public static final int NAVIGATION_VERSION=3;
+    public static final int NAVIGATION_VERSION=4;
     private State() {}
     public static final class Session {
         public int navigationVersion;
@@ -28,6 +28,7 @@ public final class State {
         public TransactionDraft transaction;
         public String afterLogin;
         public String transactionResult;
+        public String registrationResult;
         public List<String> history = new ArrayList<>();
         public Draft draft;
         @com.fasterxml.jackson.annotation.JsonIgnore
@@ -61,6 +62,7 @@ public final class State {
         public String node = "SECTOR";
         public Map<String, String> answers = new LinkedHashMap<>();
         public boolean authenticationStarted;
+        public boolean collectOwnerDetails = true;
         public boolean mayHaveSubmitted;
         public String ownerId;
         public Draft() {}

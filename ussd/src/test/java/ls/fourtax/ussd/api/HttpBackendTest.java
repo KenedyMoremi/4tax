@@ -125,6 +125,18 @@ class HttpBackendTest {
         Files.createDirectories(Path.of("target"));
         Files.writeString(Path.of("target/registration-wire-samples.json"), json.writeValueAsString(samples));
     }
+    @Test void addingABusinessSendsOnlyBusinessDetailsWithTheOwnerToken() {
+        var fake = new FakeBackend(); var d = new Driver(new MemoryStore(), fake);
+        d.transportToReview("1"); d.advance(); d.steps("001234", "001234");
+        d.steps("1", "1", "4"); d.fillToReview(); d.advance();
+        var payload = fake.saved.values().stream().toList().getLast();
+        assertNull(payload.owner());
+        backend.register(ownerToken, payload, "add-business");
+        var wire = json.readTree(businessBodies.getLast());
+        assertFalse(wire.has("owner")); assertEquals("retail", wire.get("sector").asText());
+        assertTrue(wire.has("details")); assertTrue(wire.get("employees").isArray());
+        assertEquals("add-business", operationKeys.getLast());
+    }
     @Test void authClientFailureIsAttributedBeforeAnyOwnerOrRegistrationRequest() {
         tokenStatus = 401;
         try (var capture = trace.begin()) {

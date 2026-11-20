@@ -35,6 +35,7 @@ public class JourneyEngine {
         if (command != null) {
             switch (command) {
                 case "@exit" -> { end(s, "goodbye"); return; }
+                case "@mainMenu" -> { router.go(s, "AUTH_MENU"); s.history.clear(); return; }
                 case "@next" -> { s.page++; return; }
                 case "@previous" -> { s.page--; return; }
                 case "@businessNext" -> { transactions.nextBusinesses(s); return; }
@@ -151,6 +152,7 @@ public class JourneyEngine {
     private void fresh(Session s) {
         s.draft = new Draft(); s.draft.language = s.language; s.draft.ownerId = s.ownerId;
         s.draft.authenticationStarted = s.ownerId != null;
+        s.draft.collectOwnerDetails = s.ownerId == null;
         s.editing = false; router.go(s, "SECTOR"); save(s);
     }
     private void resume(Session s, String input) {
@@ -166,6 +168,14 @@ public class JourneyEngine {
         if (s.draft.ownerId != null && !s.draft.ownerId.equals(s.ownerId)) { end(s, "error.expired"); return; }
         if (s.draft.sector != null && !RegistrationSchema.sectors().contains(s.draft.sector)) { router.go(s, "RESUME"); s.error = "error.oldDraft"; return; }
         if(s.draft.mayHaveSubmitted) { submit(s); return; }
+        // Older Add business drafts may be paused at an owner prompt. Initial signups
+        // cannot have an owner ID until both personal fields have already been captured.
+        if (s.draft.ownerId != null && s.draft.collectOwnerDetails
+                && (!s.draft.answers.containsKey("fullNames") || !s.draft.answers.containsKey("idNumber"))) {
+            s.draft.collectOwnerDetails = false;
+            s.draft.answers.keySet().removeAll(Set.of("fullNames", "idNumber"));
+            save(s);
+        }
         String next = s.draft.node;
         if (Set.of("RESUME", "RETRY", "AUTH_UNKNOWN", "SUBMIT").contains(next)) next = "REVIEW";
         router.go(s, next);
@@ -314,7 +324,8 @@ public class JourneyEngine {
         try {
             RegistrationReply reply = backend.register(s.token, registration(s), s.draft.operationId);
             store.deleteDraft(crypto.digest(s.mobile)); s.draft = null;
-            s.terminal = messages.text(s.language, "success", reply.reference()); s.node = "END"; s.clearAuthentication();
+            s.registrationResult = reply.reference(); s.editing = false;
+            router.go(s, "REG_DONE"); s.history.clear();
         } catch (Backend.Failure failure) {
             if (failure.code.equals("LOGIN_REQUIRED")) {
                 s.clearAuthentication(); s.resumeAfterLogin = true; router.go(s, "LOGIN_PIN"); s.error = "error.expired";
@@ -344,7 +355,7 @@ public class JourneyEngine {
             if (!Set.of("fullNames", "idNumber").contains(field) && RegistrationSchema.group(s.draft.sector, field) == null)
                 details.put(field, RegistrationSchema.value(s.draft.sector, field, field.equals("other_description") ? a.getOrDefault(field, "") : a.get(field)));
         }
-        return new BusinessRegistration(s.draft.sector, new Owner(a.get("idNumber"), a.get("fullNames")), details,
+        return new BusinessRegistration(s.draft.sector, s.draft.collectOwnerDetails ? new Owner(a.get("idNumber"), a.get("fullNames")) : null, details,
                 s.draft.collections.getOrDefault("employees", List.of()),
                 s.draft.sector.equals("transport") ? s.draft.collections.getOrDefault("routes", List.of()) : null,
                 s.draft.sector.equals("agriculture") ? s.draft.collections.getOrDefault("livestock", List.of()) : null,

@@ -43,7 +43,7 @@ public class Screen {
         if (s.error != null) c.text = m(s, s.error) + "\n" + c.text;
         boolean exit = canExit(s);
         boolean preview = s.node.equals("TX_PREVIEW");
-        boolean back = preview || (exit && !(s.draft != null && s.draft.mayHaveSubmitted)
+        boolean back = preview || (exit && !Set.of("REG_DONE", "TX_DONE").contains(s.node) && !(s.draft != null && s.draft.mayHaveSubmitted)
                 && !(s.transaction != null && s.transaction.frozen));
         String backValue = preview ? "@edit" : s.node.equals("TX_BUSINESS") && s.businessPage > 1 ? "@businessPrevious" : "@back";
         StringBuilder actions = new StringBuilder();
@@ -55,8 +55,11 @@ public class Screen {
             single.append(i+1).append(". ").append(c.choices.get(i).label);
             singleCommands.put(Integer.toString(i+1),c.choices.get(i).value);
         }
-        single.append(actions); c.actions.forEach((key,choice)->singleCommands.put(key,choice.value));
+        c.actions.forEach((key,choice)-> {
+            if (!key.equals("9")) { single.append('\n').append(key).append(". ").append(choice.label); singleCommands.put(key,choice.value); }
+        });
         if(back) { single.append("\n8. ").append(m(s,"nav.back")); singleCommands.put("8",backValue); }
+        if(c.actions.containsKey("9")) { single.append("\n9. ").append(c.actions.get("9").label); singleCommands.put("9",c.actions.get("9").value); }
         if(exit) { single.append("\n0. ").append(m(s,"nav.exit")); singleCommands.put("0","@exit"); }
         if(single.length()<=limit && c.choices.size()<=(c.actions.containsKey("7")?6:7))
             return List.of(new Page(single.toString(),Map.copyOf(singleCommands),c.input));
@@ -93,13 +96,18 @@ public class Screen {
             var commands = new LinkedHashMap<>(part.commands);
             String text = (parts.size() > 1 ? "(" + (i+1) + "/" + parts.size() + ")\n" : "") + part.text;
             if (i == parts.size()-1) {
-                text += actions;
-                c.actions.forEach((key, choice) -> commands.put(key, choice.value));
-            } else {
-                text += "\n9. " + m(s, "nav.next"); commands.put("9", "@next");
+                for (var entry : c.actions.entrySet()) if (!entry.getKey().equals("9")) {
+                    text += "\n" + entry.getKey() + ". " + entry.getValue().label;
+                    commands.put(entry.getKey(), entry.getValue().value);
+                }
             }
             if (i > 0 || back) {
                 text += "\n8. " + m(s, "nav.back"); commands.put("8", i > 0 && !preview ? "@previous" : backValue);
+            }
+            if (i < parts.size()-1) {
+                text += "\n9. " + m(s, "nav.next"); commands.put("9", "@next");
+            } else if (c.actions.containsKey("9")) {
+                text += "\n9. " + c.actions.get("9").label; commands.put("9", c.actions.get("9").value);
             }
             if (exit) { text += "\n0. " + m(s, "nav.exit"); commands.put("0", "@exit"); }
             if (text.length() > limit) throw new IllegalStateException("Screen exceeds configured limit");
@@ -180,6 +188,10 @@ public class Screen {
             if ((!s.draft.authenticationStarted || s.token!=null) && !s.draft.mayHaveSubmitted) action(c,s,"2","nav.discard","2");
             if (!old) action(c,s,"9","nav.resume","1"); return c;
         }
+        if (s.node.equals("REG_DONE")) {
+            var c=new Content(messages.text(s.language,"success",s.registrationResult));
+            action(c,s,"1","nav.mainMenu","@mainMenu"); return c;
+        }
         return switch(s.node) {
             case "LANGUAGE" -> menu(s,"language"); case "MAIN" -> menu(s,"main");
             case "ENTRY_RETRY" -> menu(s,"entryRetry"); case "AUTH_MENU" -> menu(s,"authenticated");
@@ -216,7 +228,7 @@ public class Screen {
             case "TX_PREVIEW" -> action(c,s,"9","nav.post","1");
             case "TX_RESUME" -> { if(!d.frozen) action(c,s,"2","nav.discard","2"); action(c,s,"9","nav.resume","1"); }
             case "TX_RETRY", "TX_LOAD", "TX_EMPTY" -> action(c,s,"9","nav.retry","1");
-            case "TX_DONE" -> action(c,s,"1","nav.addTransaction","1");
+            case "TX_DONE" -> { action(c,s,"1","nav.addTransaction","1"); action(c,s,"8","nav.mainMenu","2"); }
             default -> throw new IllegalStateException("No transaction screen for "+s.node);
         }
         return c;

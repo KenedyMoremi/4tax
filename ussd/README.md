@@ -29,16 +29,16 @@ Outbound auth, registration and JWKS calls use `BACKEND_CONNECT_TIMEOUT=5s` and 
 
 The five sectors are Transport, Services, E-Commerce, Retail and Agriculture. Their choices and fields are generated from the Django web forms into `registration-schema.json`; run `python manage.py export_registration_schema` at the repository root after changing those forms. CI checks for drift. See [field definitions and API setup](../docs/USSD_REGISTRATION.md).
 
-All sectors collect owner names, national identity number, location, monthly turnover and named employees with a separate monthly salary choice. Employee capture opens directly with the full-name prompt, followed by a monthly salary range menu. After each employee, choose Add another or Continue; Clear entries resets the unsaved employee list. Choose `7. Skip` at the name prompt to continue without adding an employee. Empty route/livestock lists open directly at the first entry; routes and livestock activity require at least one row. Collection actions appear only when usable. Transport starts with Taxi/Cab/Catch-a-ride before details. The Other description is shown and required only when Other is selected in E-Commerce, Retail or Agriculture; listed types skip it in registration, review and editing. Agriculture captures farmland count and, when positive, size/unit. Zero plots records zero size with no applicable unit; farming requires land. Daytime hours derive `overnight=false`; overnight/24-hour hours require confirmation or correction. Exact decimal amounts are strings, and ranges use stable categorical keys. Existing registered entities are not overwritten.
+All sectors collect location, monthly turnover and named employees with a separate monthly salary choice. Initial registration also collects owner names and national identity number. Employee capture opens directly with the full-name prompt, followed by a monthly salary range menu. After each employee, choose Add another or Continue; Clear entries resets the unsaved employee list. Choose `7. Skip` at the name prompt to continue without adding an employee. Empty route/livestock lists open directly at the first entry; routes and livestock activity require at least one row. Collection actions appear only when usable. Transport starts with Taxi/Cab/Catch-a-ride before details. The Other description is shown and required only when Other is selected in E-Commerce, Retail or Agriculture; listed types skip it in registration, review and editing. Agriculture captures farmland count and, when positive, size/unit. Zero plots records zero size with no applicable unit; farming requires land. Daytime hours derive `overnight=false`; overnight/24-hour hours require confirmation or correction. Exact decimal amounts are strings, and ranges use stable categorical keys. Existing registered entities are not overwritten.
 
 Choose English or Sesotho. USSD checks the caller number with auth: existing owners go straight to PIN login, while new owners see Register business and Login. If the lookup fails, Retry/Login is shown without assuming the number is unregistered. A new owner completes business details, review/edit, PIN creation and confirmation. With an application JWT cached or obtained first, USSD calls auth to create the account and obtain an owner JWT, then calls the external API to create the entity. The PIN is sent only to auth.
 
-Existing owners log in using the MNO-supplied caller number and PIN. Their post-login menu offers **Add business** and **Add transaction**. Add business reuses the same sector flows without PIN creation.
+Existing owners log in using the MNO-supplied caller number and PIN. Their post-login menu offers **Add business** and **Add transaction**. Add business asks only for sector and business details, skipping owner names, identity number and PIN creation. Ownership comes from the verified owner JWT. After registration, a success screen shows the reference and offers **1. Main menu** and **0. Exit**, keeping the owner signed in until exit.
 
 Editing existing registered entities remains deferred. The authenticated menu offers Add business and Add transaction. Editing during registration is available from review.
 
 - `8. Back`: previous page, or previous screen from the first page; `0. Exit` ends the session.
-- `9. Next` advances pages; the last page offers `9. Continue`, `9. Confirm` or `9. Confirm and post` only when applicable.
+- `9. Next` advances pages; the last page offers `9. Continue`, `9. Confirm` or `9. Confirm and post` only when applicable. `8. Back` is displayed before `9` actions.
 - `7. Skip` appears only for optional answers. Weekday `7` still means Sunday.
 - Numeric values that match displayed controls use a leading zero: `08` for eight and `00` for zero. `9` is a normal answer when no Continue/Next action is displayed. Identity numbers and six-digit PINs retain leading zeros.
 - Menus use page-local choices `1–7`; longer menus page without multi-digit choices. Only commands displayed on the current page are accepted. The welcome, main and PIN-login screens retain their existing clean layout.
@@ -48,7 +48,7 @@ Every prompt, validation message and outcome has English and Sesotho wording in 
 
 ## Sessions, recovery and retries
 
-Redis retains unfinished drafts for 15 minutes after the last meaningful update. Opening registration or selecting a business without entering an answer does not create a resumable draft. Navigation version 3 ends older active sessions with a redial message, preserving drafts, operation keys and receipts; cached replies are versioned too. Invalid input and pagination do not extend the draft. Ending a session clears its authenticated context. A returning owner must log in before resuming once account creation has begun.
+Redis retains unfinished drafts for 15 minutes after the last meaningful update. Opening registration or selecting a business without entering an answer does not create a resumable draft. Navigation version 4 ends older active sessions with a redial message, preserving drafts, operation keys and receipts; cached replies are versioned too. Invalid input and pagination do not extend the draft. Ending a session clears its authenticated context. A returning owner must log in before resuming once account creation has begun. In-flight registration submissions retain their original payloads. Unsubmitted existing-owner drafts paused at owner details skip those prompts on resume.
 
 Drafts exclude PIN values and bearer tokens. Active sessions can contain a short-lived JWT and a temporary keyed digest for PIN confirmation. Raw PINs are never stored in Redis. Data keys are keyed digests of caller/session identifiers.
 
@@ -84,7 +84,7 @@ See [USSD OpenAPI](openapi.yaml), [the external registration contract](contracts
 
 ## Add transaction
 
-After PIN login, choose **2. Add transaction**. The owner-authenticated business list comes from `GET /api/v1/businesses`; five results are returned per page. One business is selected automatically, while multiple entities require a selection. Business sectors are derived from saved registrations, not entered by the caller. An owner with no business can return to Add business.
+After PIN login, choose **2. Add transaction**. The owner-authenticated business list comes from `GET /api/v1/businesses`; five results are returned per page. Every new transaction starts with a business list and an explicit choice, including when there is only one business. Business sectors are derived from saved registrations, not entered by the caller. An owner with no business can return to Add business. Posted receipts offer **Add transaction**, **Main menu** and **Exit**.
 
 All transaction inputs are free text:
 
@@ -104,4 +104,4 @@ The emulator inspector shows owner-lookup, list-businesses and transaction-webho
 
 A definite clarification response saves the new operation ID and editable stage before returning, including retry/resume branches. Repeated clarification no longer causes a session/draft operation mismatch. Clarification opens a compact three-field editing menu.
 
-Version 3 also invalidates active pre-update transaction screens: a prior `9. Next` reply cannot be interpreted as confirmation of a newly compacted preview. Drafts and operation keys remain recoverable after redial and login.
+Navigation upgrades also invalidate active pre-update transaction screens: a prior `9. Next` reply cannot be interpreted as confirmation of a newly compacted preview. Drafts and operation keys remain recoverable after redial and login.

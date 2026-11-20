@@ -32,7 +32,9 @@ class RedisIntegrationTest {
             if (!key.startsWith("lock:")) assertFalse(Objects.requireNonNull(redis.opsForValue().get(key)).contains("087431"));
         }
         Long ttl = redis.getExpire("draft:" + d.crypto.digest(d.mobile)); assertNotNull(ttl); assertTrue(ttl > 880 && ttl <= 900);
-        d.input("087431"); assertTrue(d.last.end()); assertTrue(redis.keys("draft:*").isEmpty()); assertTrue(redis.keys("session:*").isEmpty());
+        d.input("087431"); assertFalse(d.last.end()); assertEquals("REG_DONE",d.state().node);
+        assertTrue(redis.keys("draft:*").isEmpty()); assertEquals(1,redis.keys("session:*").size());
+        d.input("0"); assertTrue(d.last.end()); assertTrue(redis.keys("session:*").isEmpty());
     }
     @Test void concurrentDuplicateCallbacksAdvanceOnlyOnce() throws Exception {
         d.start();
@@ -63,7 +65,7 @@ class RedisIntegrationTest {
     @Test void transactionRecoveryRetainsOperationButNeverPinOrJwtInTheDraft() {
         d.backend.pins.put(d.mobile,"001234");
         d.backend.ownedBusinesses.add(new ls.fourtax.ussd.api.Contracts.BusinessSummary("business-1","4TAX-TEST","retail","Test shop"));
-        d.start(); d.steps("1","001234","2","Sold synthetic goods for M100 total","paid in cash","7");
+        d.start(); d.steps("1","001234","2","1","Sold synthetic goods for M100 total","paid in cash","7");
         assertEquals("TX_PREVIEW",d.state().node);
         String key="transaction:"+d.crypto.digest(d.mobile);
         String draft=redis.opsForValue().get(key); assertNotNull(draft); assertFalse(draft.contains("001234")); assertFalse(draft.contains("owner-token"));
@@ -78,7 +80,7 @@ class RedisIntegrationTest {
         d.backend.pins.put(d.mobile,"001234");
         d.backend.ownedBusinesses.add(new ls.fourtax.ussd.api.Contracts.BusinessSummary("business-1","4TAX-TEST","retail","Test shop"));
         d.backend.transactionFailure="CLARIFICATION_REQUIRED";
-        d.start(); d.steps("1","001234","2","sold 2 weaves worth M1800 each","cash","Test Buyer");
+        d.start(); d.steps("1","001234","2","1","sold 2 weaves worth M1800 each","cash","Test Buyer");
         for(int retry=0;retry<3;retry++) {
             assertEquals("TX_EDIT",d.state().node);
             assertEquals(d.state().transaction.operationId,d.store.transaction(d.crypto.digest(d.mobile)).operationId);

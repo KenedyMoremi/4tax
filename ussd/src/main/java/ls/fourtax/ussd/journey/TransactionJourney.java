@@ -45,8 +45,7 @@ public class TransactionJourney {
         try {
             var reply = backend.businesses(s.token, page);
             s.businesses = reply.businesses(); s.businessPage = page; s.nextBusinessPage = reply.nextPage();
-            if (page == 1 && s.businesses.size() == 1 && s.nextBusinessPage == null) select(s, s.businesses.getFirst());
-            else router.go(s, s.businesses.isEmpty() ? "TX_EMPTY" : "TX_BUSINESS");
+            router.go(s, s.businesses.isEmpty() ? "TX_EMPTY" : "TX_BUSINESS");
         } catch (Backend.Failure error) { fail(s, error, "TX_LOAD"); }
     }
     public void nextBusinesses(Session s) { load(s,s.nextBusinessPage); }

@@ -255,7 +255,6 @@
         "additionalProperties": false,
         "required": [
           "sector",
-          "owner",
           "details",
           "source",
           "routes",
@@ -285,7 +284,8 @@
                 "minLength": 1,
                 "description": "Owner\u2019s national identity number"
               }
-            }
+            },
+            "description": "Optional personal details collected during initial registration. Omit after login; ownership always comes from the verified JWT issuer and subject. If supplied, both fields are required."
           },
           "details": {
             "type": "object",
@@ -470,7 +470,6 @@
         "additionalProperties": false,
         "required": [
           "sector",
-          "owner",
           "details",
           "source",
           "employees"
@@ -499,7 +498,8 @@
                 "minLength": 1,
                 "description": "Owner\u2019s national identity number"
               }
-            }
+            },
+            "description": "Optional personal details collected during initial registration. Omit after login; ownership always comes from the verified JWT issuer and subject. If supplied, both fields are required."
           },
           "details": {
             "type": "object",
@@ -652,7 +652,6 @@
         "additionalProperties": false,
         "required": [
           "sector",
-          "owner",
           "details",
           "source",
           "employees"
@@ -681,7 +680,8 @@
                 "minLength": 1,
                 "description": "Owner\u2019s national identity number"
               }
-            }
+            },
+            "description": "Optional personal details collected during initial registration. Omit after login; ownership always comes from the verified JWT issuer and subject. If supplied, both fields are required."
           },
           "details": {
             "type": "object",
@@ -828,7 +828,6 @@
         "additionalProperties": false,
         "required": [
           "sector",
-          "owner",
           "details",
           "source",
           "employees"
@@ -857,7 +856,8 @@
                 "minLength": 1,
                 "description": "Owner\u2019s national identity number"
               }
-            }
+            },
+            "description": "Optional personal details collected during initial registration. Omit after login; ownership always comes from the verified JWT issuer and subject. If supplied, both fields are required."
           },
           "details": {
             "type": "object",
@@ -993,7 +993,6 @@
         "additionalProperties": false,
         "required": [
           "sector",
-          "owner",
           "details",
           "source",
           "livestock",
@@ -1023,7 +1022,8 @@
                 "minLength": 1,
                 "description": "Owner\u2019s national identity number"
               }
-            }
+            },
+            "description": "Optional personal details collected during initial registration. Omit after login; ownership always comes from the verified JWT issuer and subject. If supplied, both fields are required."
           },
           "details": {
             "type": "object",

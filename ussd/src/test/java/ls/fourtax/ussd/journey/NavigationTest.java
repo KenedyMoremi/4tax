@@ -7,6 +7,26 @@ import ls.fourtax.ussd.callback.Callback;
 import org.junit.jupiter.api.Test;
 
 class NavigationTest {
+    void assertBackBeforeForward(Driver d) {
+        for (var page : d.screens().layout(d.state())) {
+            int back=page.text().indexOf("\n8. "), forward=page.text().indexOf("\n9. ");
+            if (back>=0 && forward>=0) assertTrue(back<forward,page.text());
+            assertTrue(page.text().length()<=160);
+        }
+    }
+    @Test void backPrecedesNextContinueConfirmAndPostInBothLanguages() {
+        for (String language : List.of("1", "2")) {
+            var d=registration(language,"1"); d.fillUntil("COLLECTION:routes"); assertBackBeforeForward(d);
+            d.fillToReview(); assertBackBeforeForward(d); d.lastPage(); d.input("1"); assertBackBeforeForward(d);
+            d.input("8"); d.advance(); d.input("001234"); assertBackBeforeForward(d);
+            var tx=new TransactionJourneyTest().login("retail",language);
+            for (int i=2; i<=6; i++) tx.backend.ownedBusinesses.add(new ls.fourtax.ussd.api.Contracts.BusinessSummary(
+                    "business-"+i,"4TAX-"+i,"retail","Shop "+i));
+            tx.input("2"); assertBackBeforeForward(tx); tx.choose("1");
+            new TransactionJourneyTest().capture(tx); assertBackBeforeForward(tx);
+            tx.input("8"); assertBackBeforeForward(tx);
+        }
+    }
     Driver registration(String language,String sector) {
         var d=new Driver(new MemoryStore(),new FakeBackend()); d.start(); d.steps(language,"1",sector); return d;
     }
@@ -64,7 +84,7 @@ class NavigationTest {
     @Test void pinConfirmationBackReturnsToNewPinAndClearsDigest() {
         var d=registration("1","4"); d.fillToReview(); d.advance(); d.input("001234"); assertNotNull(d.state().pinDigest);
         d.input("8"); assertEquals("PIN_NEW",d.state().node); assertNull(d.state().pinDigest); assertNull(d.state().pinNonce);
-        d.steps("000008","000008"); assertTrue(d.last.end());
+        d.steps("000008","000008"); assertFalse(d.last.end()); assertEquals("REG_DONE",d.state().node);
     }
     @Test void editMenusHavePageLocalChoicesAndBackMovesOnePageAtATime() {
         var d=registration("1","1"); d.fillToReview(); d.lastPage(); int last=d.state().page;
@@ -81,12 +101,12 @@ class NavigationTest {
         assertEquals(operation,d.store.draft(d.crypto.digest(d.mobile)).operationId);
         d.start(); d.steps("1","1","9"); assertEquals("REVIEW",d.state().node);
     }
-    @Test void untouchedRegistrationAndAutoSelectedBusinessDoNotOfferRecovery() {
+    @Test void untouchedRegistrationAndBusinessSelectionDoNotOfferRecovery() {
         var d=registration("1","1"); d.input("0"); assertNull(d.store.draft(d.crypto.digest(d.mobile)));
         d.start(); d.steps("1","1"); assertEquals("SECTOR",d.state().node);
-        var tx=new TransactionJourneyTest().login("retail","1"); tx.input("2"); tx.input("0");
+        var tx=new TransactionJourneyTest().login("retail","1"); tx.steps("2","1","0");
         assertNull(tx.store.transaction(tx.crypto.digest(tx.mobile))); tx.start(); tx.steps("1","001234","2");
-        assertEquals("TX_FIELD:summary",tx.state().node);
+        assertEquals("TX_BUSINESS",tx.state().node); assertNull(tx.state().transaction);
     }
     @Test void noBackOrExitIsAdvertisedOrAcceptedAtPinLogin() {
         var d=new TransactionJourneyTest().login("retail","1"); d.input("0"); d.start(); d.input("1");

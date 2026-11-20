@@ -6,6 +6,6 @@ public record Node(String id, Kind kind, Access access) {
     public static Node of(String id) {
         Kind kind = id.startsWith("FIELD:") || id.startsWith("TX_FIELD:") || id.equals("PIN_NEW") || id.equals("PIN_CONFIRM") || id.equals("LOGIN_PIN") ? Kind.INPUT
                 : id.equals("END") ? Kind.TERMINAL : id.equals("SUBMIT") ? Kind.ACTION : Kind.MENU;
-        return new Node(id, kind, id.equals("AUTH_MENU") || id.startsWith("TX_") ? Access.OWNER : Access.APPLICATION);
+        return new Node(id, kind, id.equals("AUTH_MENU") || id.equals("REG_DONE") || id.startsWith("TX_") ? Access.OWNER : Access.APPLICATION);
     }
 }

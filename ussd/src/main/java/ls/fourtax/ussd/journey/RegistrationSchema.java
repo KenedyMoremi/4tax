@@ -40,6 +40,7 @@ public final class RegistrationSchema {
         return category != null && "other".equals(draft.answers.get(category));
     }
     public static boolean applies(State.Draft draft, String field) {
+        if (Set.of("fullNames", "idNumber").contains(field)) return draft.collectOwnerDetails;
         if (field.equals("other_description")) return requiresOtherDescription(draft);
         if (field.equals("overnight")) return !daytime(draft);
         if (Set.of("farmland_size", "farmland_unit").contains(field)) return !"0".equals(draft.answers.get("farmland_count"));

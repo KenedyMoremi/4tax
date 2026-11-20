@@ -7,8 +7,30 @@ import java.util.*;
 import org.junit.jupiter.api.Test;
 
 class TransactionJourneyTest {
+    @Test void evenOneBusinessMustBeListedAndChosenBeforeEnteringATransaction() {
+        for (String language : List.of("1", "2")) {
+            var d=login("retail",language); d.input("2");
+            assertEquals("TX_BUSINESS",d.state().node); assertNull(d.state().transaction);
+            assertTrue(d.last.message().contains("Test business")); assertFalse(d.last.end());
+            d.input("6"); assertEquals("TX_BUSINESS",d.state().node); assertNull(d.state().transaction);
+            d.input("8"); assertEquals("AUTH_MENU",d.state().node);
+            d.steps("2","1"); assertEquals("TX_FIELD:summary",d.state().node);
+            assertEquals("business-1",d.state().transaction.business.entityId());
+            assertTrue(d.backend.transactionRequests.isEmpty());
+        }
+    }
+    @Test void chosenBusinessReceivesTheTransactionAndReceiptOffersMainMenuAndExit() {
+        var d=login("retail","1");
+        d.backend.ownedBusinesses.add(new BusinessSummary("business-2","4TAX-SECOND","services","Second business"));
+        d.input("2"); assertEquals("TX_BUSINESS",d.state().node);
+        d.choose("2"); capture(d); d.advance();
+        assertEquals("business-2",d.backend.transactionRequests.values().iterator().next().entityId());
+        assertEquals("TX_DONE",d.state().node); assertTrue(d.last.message().contains("8. Main menu"));
+        assertTrue(d.last.message().contains("0. Exit")); d.input("8"); assertEquals("AUTH_MENU",d.state().node);
+        assertNull(d.store.transaction(d.crypto.digest(d.mobile))); d.input("2"); assertEquals("TX_BUSINESS",d.state().node);
+    }
     @Test void threeAnswersLeadToOneCompletePreviewAndBackOpensFieldEditing() {
-        var d=login("retail","1"); d.backend.transactionTotal="3600.00"; d.input("2");
+        var d=login("retail","1"); d.backend.transactionTotal="3600.00"; d.steps("2","1");
         assertEquals("TX_FIELD:summary",d.state().node); d.input("sold 2 weaves worth M1800 each");
         assertEquals("TX_FIELD:paymentDetails",d.state().node); assertTrue(d.backend.transactionRequests.isEmpty()); d.input("cash");
         assertEquals("TX_FIELD:buyer",d.state().node); assertTrue(d.backend.transactionRequests.isEmpty()); d.input("Test Buyer");
@@ -23,7 +45,7 @@ class TransactionJourneyTest {
     }
     @Test void repeatedClarificationsPersistNewRetryIdsInsteadOfExpiringTheSession() {
         for(String language:List.of("1","2")) {
-            var d=login("retail",language); d.input("2"); d.backend.transactionFailure="CLARIFICATION_REQUIRED"; capture(d);
+            var d=login("retail",language); d.steps("2","1"); d.backend.transactionFailure="CLARIFICATION_REQUIRED"; capture(d);
             for(int retry=0;retry<3;retry++) {
                 assertEquals("TX_EDIT",d.state().node); assertEquals(1,d.screens().pages(d.state()).size());
                 assertEquals(d.state().transaction.operationId,d.store.transaction(d.crypto.digest(d.mobile)).operationId);
@@ -34,14 +56,14 @@ class TransactionJourneyTest {
         }
     }
     @Test void backFromAnyPageOfALongPreviewOpensEditingAndNeverPosts() {
-        var d=login("retail","1"); d.input("2");
+        var d=login("retail","1"); d.steps("2","1");
         d.steps("Synthetic long sale description ".repeat(7),"paid in cash","Test Buyer");
         assertEquals("TX_PREVIEW",d.state().node); assertTrue(d.screens().pages(d.state()).size()>1);
         d.input("9"); assertTrue(d.state().page>0); d.input("8"); assertEquals("TX_EDIT",d.state().node);
         assertTrue(d.backend.postedTransactions.isEmpty());
     }
     @Test void anOldNextPageCallbackCannotConfirmTheNewShorterPreviewAfterAnUpgrade() {
-        var d=login("retail","1"); d.input("2"); capture(d); var old=d.state();
+        var d=login("retail","1"); d.steps("2","1"); capture(d); var old=d.state();
         String operation=old.transaction.operationId; old.navigationVersion=2; old.page=0;
         d.store.saveSession(d.crypto.digest("test:TEST:"+d.sessionId+":"+d.mobile),old);
         d.input("9"); assertTrue(d.last.end()); assertTrue(d.last.message().contains("Navigation has changed"));
@@ -50,7 +72,7 @@ class TransactionJourneyTest {
         assertTrue(d.backend.postedTransactions.isEmpty()); d.advance(); assertEquals("TX_DONE",d.state().node);
     }
     Driver legacyRetry() {
-        var d=login("retail","1"); d.input("2"); var state=d.state();
+        var d=login("retail","1"); d.steps("2","1"); var state=d.state();
         state.transaction.summaryCapture=false; state.transaction.frozen=true;
         state.transaction.fields.putAll(Map.of("goods","2 weaves at M1800 each","totalValue","M3600 total","paymentDetails","cash","buyer","Test Buyer"));
         state.node="TX_RETRY"; state.transaction.node=state.node;
@@ -89,7 +111,7 @@ class TransactionJourneyTest {
     }
     @Test void allFiveSectorJourneysInBothLanguagesPrepareOnePreviewAndRequirePostingConfirmation() {
         for(String language:List.of("1","2")) for(String sector:RegistrationSchema.sectors()) {
-            var d=login(sector,language); d.input("2"); capture(d);
+            var d=login(sector,language); d.steps("2","1"); capture(d);
             assertEquals("TX_PREVIEW",d.state().node); assertEquals(1,d.backend.transactionRequests.size());
             assertTrue(d.backend.postedTransactions.isEmpty());
             var request=d.backend.transactionRequests.values().iterator().next();
@@ -119,7 +141,7 @@ class TransactionJourneyTest {
         assertEquals("TX_FIELD:summary",d.state().node); assertEquals("business-6",d.state().transaction.business.entityId());
     }
     @Test void timeoutsFreezeInputsAndKeepOriginalKeyForProposalAndConfirmation() {
-        var d=login("transport","1"); d.input("2"); d.backend.loseTransactionReply=true; capture(d);
+        var d=login("transport","1"); d.steps("2","1"); d.backend.loseTransactionReply=true; capture(d);
         assertEquals("TX_RETRY",d.state().node); String key=d.state().transaction.operationId;
         assertFalse(d.last.message().contains("8. Back")); d.input("8"); assertEquals("TX_RETRY",d.state().node);
         d.advance(); assertEquals("TX_PREVIEW",d.state().node);
@@ -128,7 +150,7 @@ class TransactionJourneyTest {
         assertEquals(1,d.backend.postedTransactions.size()); assertTrue(d.backend.transactionAttempts.stream().allMatch(key::equals));
     }
     @Test void clarificationAllowsEditingAndAutomaticRepreview() {
-        var d=login("services","2"); d.input("2"); String original=d.state().transaction.operationId;
+        var d=login("services","2"); d.steps("2","1"); String original=d.state().transaction.operationId;
         d.backend.transactionFailure="CLARIFICATION_REQUIRED"; capture(d);
         assertEquals("TX_EDIT",d.state().node); assertFalse(d.state().transaction.frozen); assertNotEquals(original,d.state().transaction.operationId);
         d.backend.transactionFailure=null; d.choose("1"); d.input("Sold a haircut for M300 total"); assertEquals("TX_PREVIEW",d.state().node);
@@ -136,7 +158,7 @@ class TransactionJourneyTest {
         d.input("0"); assertTrue(d.last.end()); assertTrue(d.backend.postedTransactions.isEmpty());
     }
     @Test void editingCancelsOldPreviewBeforeCreatingARevisedOperation() {
-        var d=login("services","1"); d.input("2"); capture(d); String original=d.state().transaction.operationId;
+        var d=login("services","1"); d.steps("2","1"); capture(d); String original=d.state().transaction.operationId;
         d.lastPage(); d.input("8"); assertEquals("TX_EDIT",d.state().node); assertNotEquals(original,d.state().transaction.operationId);
         assertEquals("Sold 2 weaves worth M1800 each",d.state().transaction.fields.get("summary"));
         d.choose("1"); d.input("Sold a haircut for M350 total"); assertEquals("TX_PREVIEW",d.state().node);
@@ -144,7 +166,7 @@ class TransactionJourneyTest {
         assertEquals(1,d.backend.postedTransactions.size());
     }
     @Test void lostCancellationRetainsEditIntentUntilResumeConfirmsTheResult() {
-        var d=login("retail","1"); d.input("2"); capture(d); String original=d.state().transaction.operationId;
+        var d=login("retail","1"); d.steps("2","1"); capture(d); String original=d.state().transaction.operationId;
         d.lastPage(); d.backend.loseTransactionReply=true; d.input("8"); assertEquals("TX_RETRY",d.state().node);
         assertTrue(d.state().transaction.editAfterCancel); assertEquals(original,d.state().transaction.operationId);
         d.input("0"); d.start(); d.steps("1","001234","2"); assertEquals("TX_RESUME",d.state().node);
@@ -152,7 +174,7 @@ class TransactionJourneyTest {
         assertEquals("Sold 2 weaves worth M1800 each",d.state().transaction.fields.get("summary")); assertTrue(d.backend.postedTransactions.isEmpty());
     }
     @Test void expiredAuthenticationPrecedesShowingOrPostingDetails() {
-        var d=login("retail","1"); d.input("2"); capture(d); d.lastPage(); var s=d.state(); s.tokenExpiry=0;
+        var d=login("retail","1"); d.steps("2","1"); capture(d); d.lastPage(); var s=d.state(); s.tokenExpiry=0;
         d.store.saveSession(d.crypto.digest("test:TEST:"+d.sessionId+":"+d.mobile),s);
         d.input("9"); assertEquals("LOGIN_PIN",d.state().node); assertFalse(d.last.message().contains("produce"));
         assertTrue(d.backend.postedTransactions.isEmpty()); d.input("001234"); assertEquals("TX_PREVIEW",d.state().node);
@@ -163,39 +185,39 @@ class TransactionJourneyTest {
         assertFalse(d.last.message().contains("Main menu")); d.input("8"); assertEquals("AUTH_MENU",d.state().node);
     }
     @Test void invalidInputsAndBackPreserveCapturedText() {
-        var d=login("transport","2"); d.input("2"); d.input(" "); assertEquals("TX_FIELD:summary",d.state().node);
+        var d=login("transport","2"); d.steps("2","1"); d.input(" "); assertEquals("TX_FIELD:summary",d.state().node);
         d.steps("Maseru to Roma, 8 adults, M20 each","paid in cash","8"); assertEquals("TX_FIELD:paymentDetails",d.state().node);
         assertEquals("Maseru to Roma, 8 adults, M20 each",d.state().transaction.fields.get("summary")); d.steps("paid in cash","7");
         for(String page:d.screens().pages(d.state())) assertTrue(page.length()<=160);
     }
     @Test void interruptedConfirmationResumesWithOneActionWithoutPostingAgain() {
-        var d=login("retail","1"); d.input("2"); capture(d); d.backend.loseTransactionReply=true; d.advance();
+        var d=login("retail","1"); d.steps("2","1"); capture(d); d.backend.loseTransactionReply=true; d.advance();
         assertEquals("TX_RETRY",d.state().node); String key=d.state().transaction.operationId; d.input("0");
         d.start(); d.steps("2","001234","2"); assertEquals("TX_RESUME",d.state().node);
         assertFalse(d.last.message().contains("Discard")); d.advance(); assertEquals("TX_DONE",d.state().node);
         assertEquals(1,d.backend.postedTransactions.size()); assertEquals(key,d.backend.transactionAttempts.getLast());
     }
     @Test void staleInputCannotConfirmAPreviewNotShownInThatSession() {
-        var d=login("retail","1"); d.input("2"); capture(d); var stale=d.state(); stale.node="TX_FIELD:buyer";
+        var d=login("retail","1"); d.steps("2","1"); capture(d); var stale=d.state(); stale.node="TX_FIELD:buyer";
         d.store.saveSession(d.crypto.digest("test:TEST:"+d.sessionId+":"+d.mobile),stale);
         d.input("9"); assertEquals("TX_PREVIEW",d.state().node); assertTrue(d.backend.postedTransactions.isEmpty());
         assertEquals("tx.changed",d.state().error); d.advance(); assertEquals("TX_DONE",d.state().node);
     }
     @Test void lostSuccessScreenRecoversReceiptInsteadOfStartingAnotherSale() {
-        var d=login("retail","1"); d.input("2"); capture(d); d.advance(); assertEquals("TX_DONE",d.state().node); d.input("0");
+        var d=login("retail","1"); d.steps("2","1"); capture(d); d.advance(); assertEquals("TX_DONE",d.state().node); d.input("0");
         d.start(); d.steps("1","001234","2"); assertEquals("TX_DONE",d.state().node);
         assertEquals(1,d.backend.transactionRequests.size()); assertEquals(1,d.backend.postedTransactions.size());
-        d.input("1"); assertEquals("TX_FIELD:summary",d.state().node);
+        d.input("1"); assertEquals("TX_BUSINESS",d.state().node);
     }
     @Test void expiredConfirmationRetiresOldProposalBeforeOfferingRepreview() {
-        var d=login("retail","1"); d.input("2"); capture(d); String original=d.state().transaction.operationId;
+        var d=login("retail","1"); d.steps("2","1"); capture(d); String original=d.state().transaction.operationId;
         d.backend.expiredConfirmation=true; d.advance(); assertEquals("TX_EDIT",d.state().node);
         assertNotEquals(original,d.state().transaction.operationId); assertEquals("tx.expired",d.state().error);
         assertTrue(d.backend.postedTransactions.isEmpty()); d.advance(); assertEquals("TX_PREVIEW",d.state().node);
         assertEquals(2,d.backend.transactionRequests.size()); assertTrue(d.backend.postedTransactions.isEmpty());
     }
     @Test void editingAnAlreadyPostedProposalRecoversReceiptWithoutAReplacementSale() {
-        var d=login("retail","1"); d.input("2"); capture(d); String original=d.state().transaction.operationId;
+        var d=login("retail","1"); d.steps("2","1"); capture(d); String original=d.state().transaction.operationId;
         d.backend.postedTransactions.add(original); d.lastPage(); d.input("8"); assertEquals("TX_DONE",d.state().node);
         assertEquals(1,d.backend.postedTransactions.size()); assertEquals(1,d.backend.transactionRequests.size());
     }
