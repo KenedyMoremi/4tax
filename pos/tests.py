@@ -142,11 +142,11 @@ class PosTests(TestCase):
         self.assertEqual(sale.lines.get().name,'Apples')
         self.assertContains(self.client.post(url,data|{'version':'2','track_stock':''}),'cannot change')
 
-    def test_all_four_sectors_allowed_and_services_denied(self):
-        for sector in ['transport','ecommerce','retail','agriculture']:
+    def test_all_five_sectors_allowed_and_missing_profile_denied(self):
+        for sector in ['transport','services','ecommerce','retail','agriculture']:
             SectorProfile.objects.filter(business=self.business).update(sector=sector)
             self.assertEqual(self.client.get(reverse('pos:terminal')).status_code,200)
-        SectorProfile.objects.filter(business=self.business).update(sector='services')
+        SectorProfile.objects.filter(business=self.business).delete()
         self.assertEqual(self.client.post(reverse('pos:terminal'),self.payload()).status_code,403)
         self.client.logout()
         self.assertEqual(self.client.get(reverse('pos:terminal')).status_code,302)

@@ -66,3 +66,24 @@ class PosConcurrencyTests(TransactionTestCase):
         self.assertEqual(JournalEntry.objects.count(), 2)
         self.product.refresh_from_db()
         self.assertEqual(self.product.stock, 1)
+
+    def test_stock_table_cannot_sell_last_item_twice(self):
+        data = self.data | {'items-0-selected':'on', 'items-0-selling_price':'20'}
+        results = self.race(reverse('pos:inventory'), [data, data | {'token':str(uuid.uuid4())}])
+        self.assertEqual(sorted(code for code, _ in results), [200, 302])
+        self.assertEqual(Sale.objects.count(), 1)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.stock, 0)
+
+    def test_import_confirmation_retries_add_stock_once(self):
+        from .models import StockImport, StockMovement
+        batch = StockImport.objects.create(business=self.product.business, created_by=self.owner,
+            digest='concurrent-import', extracted={'items':[{'name':'Last item', 'quantity':2}], 'warnings':[]})
+        data = {'items-TOTAL_FORMS':'1','items-INITIAL_FORMS':'1','items-0-include':'on',
+                'items-0-name':'Last item','items-0-sku':'','items-0-product':str(self.product.pk),
+                'items-0-quantity':'2','received':'on','reviewed':'on'}
+        results = self.race(reverse('pos:import_review', args=[batch.pk]), [data,data])
+        self.assertEqual([code for code, _ in results], [302,302])
+        self.assertEqual(StockMovement.objects.count(), 1)
+        self.product.refresh_from_db()
+        self.assertEqual(self.product.stock, 3)

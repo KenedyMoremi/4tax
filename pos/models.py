@@ -4,7 +4,7 @@ from django.core.validators import MinValueValidator, MaxValueValidator
 from django.db import models
 from django.db.models.functions import Round
 
-SECTORS = ['transport','ecommerce','retail','agriculture']
+SECTORS = ['transport','services','ecommerce','retail','agriculture']
 
 
 class Product(models.Model):
@@ -102,3 +102,23 @@ class StockMovement(models.Model):
         ordering = ['-created_at','-pk']
         constraints = [models.UniqueConstraint(fields=['business','token'],name='pos_stock_retry_unique'),
                        models.CheckConstraint(condition=~models.Q(quantity=0) & models.Q(balance__gte=0),name='pos_valid_stock_movement')]
+
+
+class StockImport(models.Model):
+    """Reviewed extraction only; original screenshots are never stored."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    business = models.ForeignKey('books.Business', on_delete=models.PROTECT)
+    digest = models.CharField(max_length=64)
+    extracted = models.JSONField(default=dict)
+    applied = models.BooleanField(default=False)
+    applied_payload = models.JSONField(default=dict)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+    applied_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=['business', 'digest'], name='pos_import_image_unique'),
+            models.CheckConstraint(condition=models.Q(applied=False, applied_at__isnull=True) | models.Q(applied=True, applied_at__isnull=False), name='pos_import_applied_timestamp'),
+        ]
+        ordering = ['-created_at']

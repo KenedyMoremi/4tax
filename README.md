@@ -159,7 +159,7 @@ The separate `bookings/` app provides service and staff catalogs, appointment av
 
 ### Point of sale
 
-Transport, E-Commerce, Retail and Agriculture businesses have an owner-only POS at
+Transport, Services, E-Commerce, Retail and Agriculture businesses have an owner-only POS at
 `/pos/`, with a catalogue, stock quantities, cash/bank/mobile-money payment records,
 printable receipts and full refunds linked to the bookkeeping ledger. See
 [POS setup and deployment](docs/POS.md).
@@ -176,3 +176,8 @@ See [PWA installation and update behaviour](docs/PWA.md).
 Open **Recommendations** for a practical action plan based on your own recent
 business records. The agent uses a separate Groq key and sends only aggregate
 metrics after owner consent. See [configuration and data handling](docs/RECOMMENDATIONS.md).
+
+
+Checkout screenshots can be reviewed and imported into stock through **POS →
+Import screenshots**. **Stock table & resale** lets owners tick sold items and
+enter selling prices while preserving receipts, stock history and bookkeeping.
