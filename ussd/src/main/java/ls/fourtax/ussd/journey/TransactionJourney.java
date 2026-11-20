@@ -17,7 +17,13 @@ public class TransactionJourney {
         this.crypto = crypto;
     }
     static List<String> fields(String sector) {
-        var result = new ArrayList<>(switch (sector) {
+        if (!RegistrationSchema.sectors().contains(sector)) throw new IllegalArgumentException("Unknown sector");
+        return List.of("summary","paymentDetails","buyer");
+    }
+    static List<String> fields(TransactionDraft draft) {
+        // Finish already-started legacy operations without changing their frozen wire payload.
+        if (draft.summaryCapture || draft.fields.containsKey("summary")) return fields(draft.business.sector());
+        var result = new ArrayList<>(switch (draft.business.sector()) {
             case "transport" -> List.of("route", "passengers", "fareCost");
             case "services" -> List.of("service", "serviceCost");
             case "ecommerce", "retail", "agriculture" -> List.of("goods", "totalValue");
@@ -48,6 +54,7 @@ public class TransactionJourney {
     private void select(Session s, BusinessSummary business) {
         if (!RegistrationSchema.sectors().contains(business.sector())) { s.error = "error.unavailable"; return; }
         s.transaction = new TransactionDraft(); s.transaction.ownerId = s.ownerId;
+        s.transaction.summaryCapture=true;
         s.transaction.business = business; s.transaction.language = s.language;
         router.go(s, "TX_FIELD:" + fields(business.sector()).getFirst());
         save(s);
@@ -85,7 +92,7 @@ public class TransactionJourney {
             } else invalid(s);
             return;
         }
-        var names = fields(draft.business.sector());
+        var names = fields(draft);
         if (s.node.startsWith("TX_FIELD:")) {
             if (draft.frozen) { router.go(s, draft.proposal == null ? "TX_RETRY" : "TX_PREVIEW"); return; }
             String value = input.strip().replaceAll("\\s+", " ");
@@ -148,6 +155,9 @@ public class TransactionJourney {
                 d.editAfterCancel=true; d.action="cancel"; submit(s);
                 if(s.node.equals("TX_EDIT")) s.error="tx.expired";
             } else fail(s, error, "TX_RETRY");
+        } finally {
+            // Persist the new operation/stage even when a retry branch returns early.
+            save(s);
         }
     }
     private void fail(Session s, Backend.Failure error, String retry) {
@@ -161,7 +171,7 @@ public class TransactionJourney {
         if (d != null && d.frozen) { router.go(s, d.proposal == null || !d.action.equals("propose") ? "TX_RETRY" : "TX_PREVIEW"); s.error = "tx.finishFirst"; return; }
         if (s.node.startsWith("TX_FIELD:") && d != null) {
             if (d.editing) { d.editing = false; router.go(s, "TX_EDIT"); return; }
-            var names = fields(d.business.sector()); int previous = names.indexOf(s.node.substring(9))-1;
+            var names = fields(d); int previous = names.indexOf(s.node.substring(9))-1;
             if (previous >= 0) { router.go(s, "TX_FIELD:" + names.get(previous)); return; }
         }
         s.transaction = null; router.go(s, "AUTH_MENU");
@@ -176,24 +186,25 @@ public class TransactionJourney {
     static String screen(Session s, Messages m) {
         var d = s.transaction;
         if (s.node.equals("TX_RESUME")) return m.text(s.language, d.frozen ? "tx.resumeFrozen" : "tx.resume");
-        if (s.node.startsWith("TX_FIELD:")) return m.text(s.language, "tx.prompt." + s.node.substring(9));
+        if (s.node.startsWith("TX_FIELD:")) return m.text(s.language, s.node.equals("TX_FIELD:summary")
+                ? "tx.prompt.summary."+d.business.sector() : "tx.prompt." + s.node.substring(9));
         if (s.node.equals("TX_PREVIEW")) {
             var preview = d.proposal.preview();
             String body = d.proposal.summary();
             if (preview != null) {
-                body = m.text(s.language, "tx.preview."+preview.action()) + "\n" + preview.description()
+                body = m.text(s.language, "tx.preview."+preview.action()) + "\n" + d.fields.getOrDefault("summary",preview.description())
                         + "\n" + m.text(s.language, "tx.preview.date") + ": " + preview.date()
-                        + "\n" + m.text(s.language, "tx.preview.net") + ": M" + preview.net()
-                        + "\n" + m.text(s.language, "tx.preview.tax") + ": M" + preview.tax()
                         + "\n" + m.text(s.language, "tx.preview.total") + ": M" + preview.total()
                         + "\n" + m.text(s.language, "tx.field.buyer") + ": " + preview.buyer();
+                if(new java.math.BigDecimal(preview.tax()).signum()!=0)
+                    body += "\n" + m.text(s.language,"tx.preview.net")+": M"+preview.net()+"\n"+m.text(s.language,"tx.preview.tax")+": M"+preview.tax();
                 if (preview.paymentAccount() != null && !preview.paymentAccount().isBlank())
                     body += "\n" + m.text(s.language, "tx.preview.account") + ": "
                             + (Set.of("1000","1010","1020","1030").contains(preview.paymentAccount())
                                 ? m.text(s.language, "tx.account."+preview.paymentAccount()) : preview.paymentAccount());
                 if (preview.dueDate() != null && !preview.dueDate().isBlank()) body += "\n" + m.text(s.language, "tx.preview.dueDate") + ": " + preview.dueDate();
             }
-            return m.text(s.language, "tx.preview") + "\n" + body;
+            return body;
         }
         if (s.node.equals("TX_DONE")) return m.text(s.language, "tx.success", s.transactionResult);
         if (s.node.equals("TX_EMPTY")) return m.text(s.language, "tx.empty");

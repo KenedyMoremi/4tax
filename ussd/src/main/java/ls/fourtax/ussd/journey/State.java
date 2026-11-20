@@ -45,6 +45,7 @@ public final class State {
         public boolean editing;
         public boolean frozen;
         public boolean editAfterCancel;
+        public boolean summaryCapture;
         public String action = "propose";
         public String node = "TX_EDIT";
         public TransactionReply proposal;

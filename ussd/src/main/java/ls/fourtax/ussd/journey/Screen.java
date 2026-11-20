@@ -42,9 +42,10 @@ public class Screen {
         Content c = content(s);
         if (s.error != null) c.text = m(s, s.error) + "\n" + c.text;
         boolean exit = canExit(s);
-        boolean back = exit && !(s.draft != null && s.draft.mayHaveSubmitted)
-                && !(s.transaction != null && s.transaction.frozen);
-        String backValue = s.node.equals("TX_BUSINESS") && s.businessPage > 1 ? "@businessPrevious" : "@back";
+        boolean preview = s.node.equals("TX_PREVIEW");
+        boolean back = preview || (exit && !(s.draft != null && s.draft.mayHaveSubmitted)
+                && !(s.transaction != null && s.transaction.frozen));
+        String backValue = preview ? "@edit" : s.node.equals("TX_BUSINESS") && s.businessPage > 1 ? "@businessPrevious" : "@back";
         StringBuilder actions = new StringBuilder();
         c.actions.forEach((key, choice) -> actions.append('\n').append(key).append(". ").append(choice.label));
         StringBuilder single = new StringBuilder(c.text);
@@ -98,7 +99,7 @@ public class Screen {
                 text += "\n9. " + m(s, "nav.next"); commands.put("9", "@next");
             }
             if (i > 0 || back) {
-                text += "\n8. " + m(s, "nav.back"); commands.put("8", i > 0 ? "@previous" : backValue);
+                text += "\n8. " + m(s, "nav.back"); commands.put("8", i > 0 && !preview ? "@previous" : backValue);
             }
             if (exit) { text += "\n0. " + m(s, "nav.exit"); commands.put("0", "@exit"); }
             if (text.length() > limit) throw new IllegalStateException("Screen exceeds configured limit");
@@ -197,7 +198,7 @@ public class Screen {
             if (s.node.equals("TX_FIELD:buyer")) action(c,s,"7","nav.skip","@skip"); return c;
         }
         if (s.node.equals("TX_BUSINESS") || s.node.equals("TX_EDIT")) {
-            var c=new Content(m(s,s.node.equals("TX_BUSINESS")?"tx.chooseBusiness":"edit")); int i=1;
+            var c=new Content(m(s,s.node.equals("TX_BUSINESS")?"tx.chooseBusiness":"tx.edit")); int i=1;
             if (s.node.equals("TX_BUSINESS")) {
                 for (var b:s.businesses) {
                     String label=b.businessName()==null||b.businessName().isBlank()?b.reference():b.businessName();
@@ -205,14 +206,14 @@ public class Screen {
                 }
                 if(s.nextBusinessPage!=null) action(c,s,"9","nav.moreBusinesses","@businessNext");
             } else {
-                for(String name:TransactionJourney.fields(d.business.sector())) c.choices.add(new Choice(m(s,"tx.field."+name),Integer.toString(i++)));
-                if(d.fields.keySet().containsAll(TransactionJourney.fields(d.business.sector()))) action(c,s,"9","nav.preview","@prepare");
+                for(String name:TransactionJourney.fields(d)) c.choices.add(new Choice(m(s,"tx.field."+name),Integer.toString(i++)));
+                if(d.fields.keySet().containsAll(TransactionJourney.fields(d))) action(c,s,"9","nav.preview","@prepare");
             }
             return c;
         }
         var c=new Content(TransactionJourney.screen(s,messages));
         switch(s.node) {
-            case "TX_PREVIEW" -> { action(c,s,"1","nav.edit","@edit"); action(c,s,"2","nav.cancel","2"); action(c,s,"9","nav.post","1"); }
+            case "TX_PREVIEW" -> action(c,s,"9","nav.post","1");
             case "TX_RESUME" -> { if(!d.frozen) action(c,s,"2","nav.discard","2"); action(c,s,"9","nav.resume","1"); }
             case "TX_RETRY", "TX_LOAD", "TX_EMPTY" -> action(c,s,"9","nav.retry","1");
             case "TX_DONE" -> action(c,s,"1","nav.addTransaction","1");

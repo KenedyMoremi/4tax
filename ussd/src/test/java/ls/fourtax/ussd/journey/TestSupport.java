@@ -51,6 +51,7 @@ public final class TestSupport {
         public String transactionFailure;
         public boolean loseTransactionReply;
         public boolean expiredConfirmation;
+        public String transactionTotal="200.00";
         final Map<String, String> pins = new HashMap<>();
         @Override public boolean ownerExists(String mobile) { if (lookupFailure != null) throw new Failure(lookupFailure); return pins.containsKey(mobile); }
         @Override public BusinessPage businesses(String token, int page) {
@@ -64,7 +65,7 @@ public final class TestSupport {
             if (previous != null && !previous.equals(request)) throw new Failure("IDEMPOTENCY_CONFLICT");
             if (loseTransactionReply) { loseTransactionReply = false; throw new Failure("SERVICE_UNAVAILABLE"); }
             return new TransactionReply("txn-1", "pending", "TESTPREVIEW1", "Paid sale\nDate: 2026-11-19\nGoods\nTotal: M 200.00\nPayment account: Cash", "",
-                    new TransactionPreview("sale", "Goods", "2026-11-19", "200.00", "0.00", "200.00", "N/A", "1000", null));
+                    new TransactionPreview("sale", "Goods", "2026-11-19", transactionTotal, "0.00", transactionTotal, request.fields().get("buyer"), "1000", null));
         }
         @Override public TransactionReply resolveTransaction(String token, TransactionAction request, String key) {
             transactionAttempts.add(key);

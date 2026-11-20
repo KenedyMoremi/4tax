@@ -63,7 +63,7 @@ class RedisIntegrationTest {
     @Test void transactionRecoveryRetainsOperationButNeverPinOrJwtInTheDraft() {
         d.backend.pins.put(d.mobile,"001234");
         d.backend.ownedBusinesses.add(new ls.fourtax.ussd.api.Contracts.BusinessSummary("business-1","4TAX-TEST","retail","Test shop"));
-        d.start(); d.steps("1","001234","2","Synthetic goods","M100 total","paid in cash","7");
+        d.start(); d.steps("1","001234","2","Sold synthetic goods for M100 total","paid in cash","7");
         assertEquals("TX_PREVIEW",d.state().node);
         String key="transaction:"+d.crypto.digest(d.mobile);
         String draft=redis.opsForValue().get(key); assertNotNull(draft); assertFalse(draft.contains("001234")); assertFalse(draft.contains("owner-token"));
@@ -72,6 +72,20 @@ class RedisIntegrationTest {
         d.input("0"); d.start(); d.steps("2","001234","2","9");
         assertEquals("TX_DONE",d.state().node); assertEquals(1,d.backend.postedTransactions.size()); assertTrue(redis.opsForValue().get(key).contains("posted"));
         d.input("8"); assertNull(redis.opsForValue().get(key));
+    }
+
+    @Test void clarificationRetryPersistsItsNewOperationInRedisBeforeTheNextCallback() {
+        d.backend.pins.put(d.mobile,"001234");
+        d.backend.ownedBusinesses.add(new ls.fourtax.ussd.api.Contracts.BusinessSummary("business-1","4TAX-TEST","retail","Test shop"));
+        d.backend.transactionFailure="CLARIFICATION_REQUIRED";
+        d.start(); d.steps("1","001234","2","sold 2 weaves worth M1800 each","cash","Test Buyer");
+        for(int retry=0;retry<3;retry++) {
+            assertEquals("TX_EDIT",d.state().node);
+            assertEquals(d.state().transaction.operationId,d.store.transaction(d.crypto.digest(d.mobile)).operationId);
+            d.input("9"); assertFalse(d.last.end());
+        }
+        d.input("1"); assertEquals("TX_FIELD:summary",d.state().node);
+        d.backend.transactionFailure=null; d.input("sold 2 weaves worth M1800 each"); assertEquals("TX_PREVIEW",d.state().node);
     }
 
 }

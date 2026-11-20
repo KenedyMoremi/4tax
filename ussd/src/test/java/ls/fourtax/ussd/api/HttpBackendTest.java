@@ -184,17 +184,19 @@ class HttpBackendTest {
     @Test void listAndTransactionWireContractsUseOwnerJwtAndStableKeysWithRedactedTraces() {
         try (var capture=trace.begin()) {
             assertEquals("retail",backend.businesses(ownerToken,2).businesses().getFirst().sector());
-            var request=new TransactionRequest("USSD","propose","business-1","retail",Map.of("goods","Private goods description",
-                    "totalValue","M200 total","buyer","Private Buyer","paymentDetails","paid in cash"),"st");
+            var request=new TransactionRequest("USSD","propose","business-1","retail",Map.of("summary","Private goods sold for M200 total",
+                    "buyer","Private Buyer","paymentDetails","paid in cash"),"st");
             var proposal=backend.proposeTransaction(ownerToken,request,"same-key");
             assertEquals("pending",proposal.status()); assertEquals("200.00",proposal.preview().total());
             backend.resolveTransaction(ownerToken,new TransactionAction("USSD","confirm","business-1",proposal.transactionId()),"same-key");
             assertEquals("same-key",operationKeys.getLast());
             var wire=json.readTree(transactionBodies.getFirst()); assertEquals("st",wire.get("language").asText());
+            assertEquals(3,wire.get("fields").size());
+            assertEquals("Private goods sold for M200 total",wire.get("fields").get("summary").asText());
             assertEquals("Private Buyer",wire.get("fields").get("buyer").asText());
             var confirm=json.readTree(transactionBodies.getLast()); assertEquals(4,confirm.size()); assertEquals("confirm",confirm.get("action").asText());
             String snapshot=json.writeValueAsString(capture.exchanges());
-            for (String value:List.of(ownerToken,"Private Buyer","Private goods description","M200 total","Private sale summary")) assertFalse(snapshot.contains(value));
+            for (String value:List.of(ownerToken,"Private Buyer","Private goods sold for M200 total","M200 total","Private sale summary")) assertFalse(snapshot.contains(value));
             assertTrue(snapshot.contains("transaction-webhook")); assertTrue(snapshot.contains("list-businesses"));
         }
     }

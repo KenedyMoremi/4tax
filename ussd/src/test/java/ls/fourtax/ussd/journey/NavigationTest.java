@@ -86,7 +86,7 @@ class NavigationTest {
         d.start(); d.steps("1","1"); assertEquals("SECTOR",d.state().node);
         var tx=new TransactionJourneyTest().login("retail","1"); tx.input("2"); tx.input("0");
         assertNull(tx.store.transaction(tx.crypto.digest(tx.mobile))); tx.start(); tx.steps("1","001234","2");
-        assertEquals("TX_FIELD:goods",tx.state().node);
+        assertEquals("TX_FIELD:summary",tx.state().node);
     }
     @Test void noBackOrExitIsAdvertisedOrAcceptedAtPinLogin() {
         var d=new TransactionJourneyTest().login("retail","1"); d.input("0"); d.start(); d.input("1");

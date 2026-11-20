@@ -356,5 +356,5 @@ public class JourneyEngine {
         }
     }
     private void invalid(Session s) { s.error = "error.invalid"; s.page=0; }
-    public void end(Session s, String key) { s.terminal = messages.text(s.language, key); s.node = "END"; s.clearAuthentication(); }
+    public void end(Session s, String key) { s.error=null; s.terminal = messages.text(s.language, key); s.node = "END"; s.clearAuthentication(); }
 }
