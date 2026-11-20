@@ -1034,8 +1034,7 @@
               "turnover_range",
               "selling_price_range",
               "farmland_count",
-              "farmland_size",
-              "farmland_unit"
+              "farmland_size"
             ],
             "properties": {
               "activity": {
@@ -1106,11 +1105,47 @@
                 "enum": [
                   "hectares",
                   "acres",
-                  "square_metres"
+                  "square_metres",
+                  ""
                 ],
-                "description": "Farmland size unit"
+                "description": "Required when farmland_count is positive. Empty or omitted when count and size are zero; existing zero-land payloads with a valid unit remain accepted."
               }
-            }
+            },
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "farmland_count": {
+                      "not": {
+                        "anyOf": [
+                          {
+                            "const": 0
+                          },
+                          {
+                            "type": "string",
+                            "pattern": "^0+$"
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                "then": {
+                  "required": [
+                    "farmland_unit"
+                  ],
+                  "properties": {
+                    "farmland_unit": {
+                      "enum": [
+                        "hectares",
+                        "acres",
+                        "square_metres"
+                      ]
+                    }
+                  }
+                }
+              }
+            ]
           },
           "businessName": {
             "type": "string",

@@ -37,7 +37,7 @@ Use the options endpoint for each sector's exact field names and permitted value
 
 Transport additionally requires `routes: [{"origin":"Example A","destination":"Example B","price":"25.50"}]`, a transport type, VIN, license plate and working hours. Services require service type, price range and hours. Working days are strings such as `Monday`; times use `HH:MM` and `overnight` is a boolean. Retail and e-commerce require purchase and selling price bands, with shipping/logistics also required for e-commerce.
 
-Agriculture requires `livestock: [{"animal_type":"Sheep","number":5}]` (or `[]` when not applicable), activity, selling price range, `farmland_count`, `farmland_size` and `farmland_unit` (`hectares`, `acres`, `square_metres`). Count and size are separate inputs. Use zero for both when there is no land; farming requires positive land details and livestock activity requires an animal entry. Exact decimals such as route prices and farmland size are strings in JSON.
+Agriculture requires `livestock: [{"animal_type":"Sheep","number":5}]` (or `[]` when not applicable), activity, selling price range, `farmland_count`, `farmland_size` and `farmland_unit` (`hectares`, `acres`, `square_metres`). Count and size are separate inputs. Use zero for count and size when there is no land, with `farmland_unit` empty or omitted. Existing zero-land payloads containing a valid unit are still accepted. Positive land requires a valid unit; farming requires positive land details and livestock activity requires an animal entry. Exact decimals such as route prices and farmland size are strings in JSON.
 
 Collections accept at most 50 rows. Send `employees: []` when there are no employees. USSD asks for each employee's name, then a salary menu, then offers Add another / Continue. Routes and livestock also repeat. Clear entries resets only that unsaved collection. Numeric zero is entered as `00` in USSD because `0` means Back.
 
@@ -60,3 +60,5 @@ Existing web profiles are not rewritten by the migration. When their owner saves
 5. Use an approved test identity for an end-to-end registration; do not run synthetic registration scripts against production without approval.
 
 `python manage.py export_registration_schema` updates the checked-in Java menu resource from Django form metadata. `--check` checks for drift in CI. USSD does not fetch metadata on each screen, avoiding another network dependency in a short callback. Java auth remains responsible for PINs; PINs and bearer tokens are never included in registration payloads.
+
+USSD navigation uses `8. Back`, `9. Continue`/Next/Confirm, `7. Skip` for optional answers, and `0. Exit`, each on its own line. Numeric eight and zero use `08` and `00` where a control is displayed. Weekday 7 is Sunday. Daytime hours derive `overnight=false`; overnight/24-hour work requires confirmation or corrected times.

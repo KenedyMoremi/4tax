@@ -173,3 +173,26 @@ class RegistrationAPITests(TestCase):
         self.assertEqual(self.post(payload, key='farm').status_code, 422)
         payload['details'].update(farmland_count=1, farmland_size='1.25')
         self.assertEqual(self.post(payload, key='farm').status_code, 201)
+
+    def test_no_land_accepts_blank_or_omitted_unit_and_existing_units(self):
+        for unit in ['', None, 'hectares']:
+            with self.subTest(unit=unit):
+                payload = self.payload('agriculture')
+                if unit is None:
+                    del payload['details']['farmland_unit']
+                else:
+                    payload['details']['farmland_unit'] = unit
+                response = self.post(payload, key='no-land-' + str(unit))
+                self.assertEqual(response.status_code, 201, response.content)
+                saved = USSDRegistration.objects.get(pk=response.json()['entityId'])
+                self.assertEqual(saved.payload['details'], payload['details'])
+
+    def test_positive_land_requires_a_unit_and_zero_land_cannot_have_positive_size(self):
+        payload = self.payload('agriculture')
+        payload['details'].update(farmland_count=1, farmland_size='1.25', farmland_unit='')
+        self.assertEqual(self.post(payload).status_code, 422)
+        payload['details']['farmland_unit'] = 'acres'
+        self.assertEqual(self.post(payload).status_code, 201)
+        payload = self.payload('agriculture')
+        payload['details'].update(farmland_size='1.25', farmland_unit='')
+        self.assertEqual(self.post(payload, key='inconsistent-land').status_code, 422)

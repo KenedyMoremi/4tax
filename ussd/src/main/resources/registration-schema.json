@@ -978,7 +978,7 @@
           "name": "farmland_unit",
           "label": "Farmland size unit",
           "type": "choice",
-          "required": true,
+          "required": false,
           "choices": [
             {
               "value": "hectares",

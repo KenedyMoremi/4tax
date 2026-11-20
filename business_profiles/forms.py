@@ -103,6 +103,7 @@ class AgricultureForm(OtherTypeForm):
     farmland_count = count('Number of farmland plots (0 if none)')
     farmland_size = forms.DecimalField(label='Total farmland size', max_digits=12, decimal_places=4, min_value=0)
     farmland_unit = choices('Farmland size unit', [('hectares','Hectares'),('acres','Acres'),('square_metres','Square metres')])
+    farmland_unit.required = False
 
     def clean(self):
         data = super().clean()
@@ -111,6 +112,8 @@ class AgricultureForm(OtherTypeForm):
             self.add_error('farmland_size', 'Number of plots and total size must both be positive, or both zero.')
         if data.get('activity') == 'farming' and not number:
             self.add_error('farmland_count', 'Enter at least one plot for farming.')
+        if number and not data.get('farmland_unit'):
+            self.add_error('farmland_unit', 'Choose a unit for the farmland size.')
         return data
 
 
