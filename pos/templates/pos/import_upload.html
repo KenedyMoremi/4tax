@@ -1,0 +1,16 @@
+{% extends 'base.html' %}{% load static %}
+{% block title %}Import checkout screenshots{% endblock %}{% block breadcrumb %}Stock import{% endblock %}
+{% block content %}{% include 'pos/nav.html' %}
+<h1 class="page-title">From checkout to stock.</h1>
+<p class="mt-3 max-w-2xl text-gray-500">Upload screenshots from Shein or another supplier. Review the extracted items and quantities, then add received goods to your stock.</p>
+<div class="mt-7 grid items-start gap-6 lg:grid-cols-2">
+<form method="post" enctype="multipart/form-data" class="panel space-y-5 p-6" id="stock-upload">{% csrf_token %}
+{% include 'includes/fields.html' %}
+{% if not configured %}<p class="text-sm text-orange-800">The screenshot reader is not configured yet.</p>{% endif %}
+<button type="submit" class="btn-primary" {% if not configured %}disabled{% endif %}>Extract items</button>
+<p class="text-xs text-gray-500">No stock changes until you review and confirm. Purchase prices are reference information, not selling prices or accounting entries.</p>
+</form>
+<aside class="panel p-6"><h2 class="section-title">For a clear result</h2><ul class="mt-4 list-disc space-y-3 pl-5 text-sm text-gray-600"><li>Show item names, sizes, colours and quantities clearly.</li><li>Crop out names, addresses and payment details.</li><li>Upload up to three screenshots from one checkout, avoiding overlap.</li><li>Check quantities and duplicates before confirming. AI can misread screenshots.</li><li>Only add goods that have arrived. Keep pending orders for later review.</li></ul></aside>
+</div>
+<section class="mt-8"><h2 class="section-title">Recent imports</h2><div class="panel table-wrap mt-4"><table class="data-table"><thead><tr><th>Uploaded</th><th>Items</th><th>Status</th><th></th></tr></thead><tbody>{% for batch in page %}<tr><td>{{ batch.created_at|date:'j M Y, H:i' }}</td><td>{{ batch.extracted.items|length }}</td><td>{% if batch.applied %}Added to stock{% else %}Awaiting review{% endif %}</td><td><a class="text-brand underline" href="{% url 'pos:import_review' batch.pk %}">View</a></td></tr>{% empty %}<tr><td colspan="4">No screenshots imported yet.</td></tr>{% endfor %}</tbody></table></div>{% include 'pos/pagination.html' %}</section>
+{% endblock %}{% block extra_scripts %}<script src="{% static 'pos/import.js' %}" defer></script>{% endblock %}

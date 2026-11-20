@@ -12,7 +12,7 @@ from .models import SECTORS, Product, Sale, SaleLine, Refund, StockMovement
 def lock_business(owner):
     business=Business.objects.select_for_update(of=('self',)).filter(owner=owner,sector_profile__sector__in=SECTORS).first()
     if not business:
-        raise ValidationError('Point of sale is available to Transport, E-Commerce, Retail and Agriculture businesses.')
+        raise ValidationError('Point of sale is available to Transport, Services, E-Commerce, Retail and Agriculture businesses.')
     return business
 
 
@@ -67,7 +67,7 @@ def adjust_stock(owner,product_id,data):
 
 
 @transaction.atomic
-def checkout(owner,data,rows):
+def checkout(owner,data,rows,*,unit_prices=None):
     business=lock_business(owner)
     grouped={}
     for row in rows:
@@ -82,7 +82,15 @@ def checkout(owner,data,rows):
             raise ValidationError('Invalid item quantity.')
     if not 1<=len(grouped)<=50:
         raise ValidationError('Add between 1 and 50 items.')
+    if unit_prices is not None:
+        if set(unit_prices) != set(grouped):
+            raise ValidationError('Provide a selling price for each selected item.')
+        for price in unit_prices.values():
+            if not isinstance(price, Decimal) or not price.is_finite() or price <= 0 or price > Decimal('999999999.99') or money(price) != price:
+                raise ValidationError('Invalid selling price.')
     fingerprint_data={k:str(v.pk if k=='account' else v) for k,v in data.items() if k!='token'}
+    if unit_prices is not None:
+        fingerprint_data['selling_prices'] = [(pk, str(money(value))) for pk, value in sorted(unit_prices.items())]
     fingerprint_data['tendered']=str(money(data['tendered']))
     fingerprint_data['items']=[(pk,str(value['quantity']),value['version']) for pk,value in sorted(grouped.items())]
     fingerprint=hashlib.sha256(json.dumps(fingerprint_data,sort_keys=True).encode()).hexdigest()
@@ -105,9 +113,10 @@ def checkout(owner,data,rows):
         check_tax(business,product.tax_rate)
         if product.track_stock and product.stock<row['quantity']:
             raise ValidationError(f'Not enough stock for {product.name}. Available: {product.stock} {product.unit}.')
-        subtotal=money(product.price*row['quantity'])
+        price = product.price if unit_prices is None else unit_prices[pk]
+        subtotal=money(price*row['quantity'])
         tax=money(subtotal*product.tax_rate/100)
-        prepared.append(SaleLine(product=product,name=product.name,sku=product.sku,unit=product.unit,quantity=row['quantity'],unit_price=product.price,tax_rate=product.tax_rate,subtotal=subtotal,tax=tax,total=subtotal+tax,tracked_stock=product.track_stock))
+        prepared.append(SaleLine(product=product,name=product.name,sku=product.sku,unit=product.unit,quantity=row['quantity'],unit_price=price,tax_rate=product.tax_rate,subtotal=subtotal,tax=tax,total=subtotal+tax,tracked_stock=product.track_stock))
     subtotal=sum((line.subtotal for line in prepared),ZERO)
     tax=sum((line.tax for line in prepared),ZERO)
     total=subtotal+tax
