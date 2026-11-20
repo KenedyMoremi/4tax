@@ -19,7 +19,7 @@ VERCEL_HOSTS = [os.environ[key] for key in ['VERCEL_URL', 'VERCEL_PROJECT_PRODUC
 ALLOWED_HOSTS = list(dict.fromkeys(ALLOWED_HOSTS + VERCEL_HOSTS))
 if IS_VERCEL and not os.environ.get('DATABASE_URL'):
     raise ImproperlyConfigured('Set DATABASE_URL in the Vercel project environment.')
-INSTALLED_APPS = ['django.contrib.admin', 'django.contrib.auth', 'django.contrib.contenttypes', 'django.contrib.sessions', 'django.contrib.messages', 'django.contrib.staticfiles', 'bookkeeping.apps.BookkeepingConfig', 'whatsapp.apps.WhatsAppConfig', 'business_profiles.apps.BusinessProfilesConfig', 'bookings.apps.BookingsConfig', 'pos.apps.PosConfig']
+INSTALLED_APPS = ['django.contrib.admin', 'django.contrib.auth', 'django.contrib.contenttypes', 'django.contrib.sessions', 'django.contrib.messages', 'django.contrib.staticfiles', 'bookkeeping.apps.BookkeepingConfig', 'whatsapp.apps.WhatsAppConfig', 'business_profiles.apps.BusinessProfilesConfig', 'bookings.apps.BookingsConfig', 'pos.apps.PosConfig', 'recommendations.apps.RecommendationsConfig']
 MIDDLEWARE = ['django.middleware.security.SecurityMiddleware', 'django.contrib.sessions.middleware.SessionMiddleware', 'django.middleware.common.CommonMiddleware', 'django.middleware.csrf.CsrfViewMiddleware', 'django.contrib.auth.middleware.AuthenticationMiddleware', 'django.contrib.messages.middleware.MessageMiddleware', 'django.middleware.clickjacking.XFrameOptionsMiddleware']
 ROOT_URLCONF = 'config.urls'
 TEMPLATES = [{'BACKEND': 'django.template.backends.django.DjangoTemplates', 'DIRS': [BASE_DIR / 'templates'], 'APP_DIRS': True, 'OPTIONS': {'context_processors': ['django.template.context_processors.request', 'django.contrib.auth.context_processors.auth', 'django.contrib.messages.context_processors.messages', 'bookkeeping.context_processors.workspace']}}]
@@ -79,3 +79,6 @@ WHATSAPP_LINK_SECRET = os.environ.get('WHATSAPP_LINK_SECRET', SECRET_KEY)
 # Trusted issuer and public JWKS endpoint for USSD owner tokens. Empty disables the API.
 REGISTRATION_AUTH_ISSUER = os.environ.get('REGISTRATION_AUTH_ISSUER', '')
 REGISTRATION_AUTH_JWKS_URL = os.environ.get('REGISTRATION_AUTH_JWKS_URL', '')
+
+GROQ_RECOMMENDATIONS_API_KEY = os.environ.get('GROQ_RECOMMENDATIONS_API_KEY', '')
+GROQ_RECOMMENDATIONS_MODEL = os.environ.get('GROQ_RECOMMENDATIONS_MODEL', 'openai/gpt-oss-120b')
