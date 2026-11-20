@@ -26,6 +26,9 @@ SECTOR_FIELDS = {'transport': ['route', 'passengers', 'fareCost'],
                  'services': ['service', 'serviceCost'],
                  'ecommerce': ['goods', 'totalValue'], 'retail': ['goods', 'totalValue'],
                  'agriculture': ['goods', 'totalValue']}
+PAYMENT_ACCOUNTS = {'cash': ('cash', '1000'), 'bank': ('bank', '1010'),
+                    'm-pesa': ('M-Pesa', '1020'), 'mpesa': ('M-Pesa', '1020'), 'm pesa': ('M-Pesa', '1020'),
+                    'ecocash': ('EcoCash', '1030'), 'eco cash': ('EcoCash', '1030')}
 
 
 @never_cache
@@ -130,6 +133,8 @@ def ussd_webhook(request):
                 return snapshot(item)
             if item and item.status == 'processing' and item.lease_until > timezone.now():
                 return error(409, 'TRANSACTION_BUSY')
+            if re.fullmatch(r'[+0-9 ()-]+', payload['fields']['paymentDetails'].strip()):
+                return error(422, 'VALIDATION_ERROR', {'paymentDetails': 'Choose cash, bank, M-Pesa or EcoCash, or unpaid with a due date.'})
             business = ledger_for(registration)
             if not item:
                 item = USSDTransaction(registration=registration, idempotency_key=key, payload=payload)
@@ -142,14 +147,16 @@ def ussd_webhook(request):
         ai_fields = dict(captured) if 'summary' in captured else {
             'summary': '; '.join(name + ': ' + captured[name] for name in SECTOR_FIELDS[payload['sector']]),
             'paymentDetails': captured['paymentDetails'], 'buyer': captured['buyer']}
+        selected_account = None
         if 'summary' in captured:
-            account = {'cash': 'cash', 'bank': 'bank', 'm-pesa': 'M-Pesa', 'mpesa': 'M-Pesa',
-                       'm pesa': 'M-Pesa', 'ecocash': 'EcoCash', 'eco cash': 'EcoCash'}.get(captured['paymentDetails'].strip().casefold())
-            if account:
-                # A bare account is an explicit choice on the paid-account screen.
-                ai_fields['paymentDetails'] = 'paid in ' + account
+            payment = captured['paymentDetails'].strip().casefold().removeprefix('paid in ').removeprefix('paid via ')
+            selected_account = PAYMENT_ACCOUNTS.get(payment)
+            if selected_account:
+                ai_fields['paymentDetails'] = 'paid in ' + selected_account[0]
         message = ('Prepare ONE sale or unpaid sales invoice from these USSD fields. Do not post it. '
                    'The summary is the complete sale instruction, including amounts or quantities and unit prices. '
+                   'It answers a sales form and need not repeat the word sold. '
+                   'These screens use Maloti (LSL); unqualified prices are Maloti unless another currency is explicitly stated. '
                    'For transport, the summary (or legacy fareCost) must specify per passenger or total when needed. '
                    'Use all three answers together: summary, paymentDetails and buyer. '
                    'If the answers conflict, ask for clarification. '
@@ -177,6 +184,10 @@ def ussd_webhook(request):
                 intent['contact_name'] = 'N/A'
             else:
                 intent['contact_name'] = payload['fields']['buyer'].strip()
+            if selected_account and intent['action'] == 'sale':
+                # This is an explicit account choice, like the captured buyer name;
+                # it does not depend on the model choosing a ledger code correctly.
+                intent['payment_account'] = selected_account[1]
             try:
                 proposal = agent_actions.propose(business=business, owner=business.owner, source_key='ussd:' + item.id.hex, data=intent)
             except ValidationError:

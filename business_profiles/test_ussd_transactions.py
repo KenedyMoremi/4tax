@@ -117,6 +117,28 @@ class USSDTransactionTests(TestCase):
         self.assertEqual(Payment.objects.get().amount, Decimal('3600.00'))
         self.assertEqual(USSDTransaction.objects.get().payload['fields']['paymentDetails'], 'cash')
 
+    def test_three_bags_and_an_explicit_account_prepare_a_preview_without_extra_input(self):
+        payload = self.payload()
+        payload['fields'] = {'summary': '3 bags worth 400 each', 'paymentDetails': 'paid in M-Pesa', 'buyer': 'Test Buyer'}
+        self.ai.return_value = self.intent(amount=None, quantity='3', unit_price='400', payment_account=None)
+        response = self.post(payload)
+        self.assertEqual(response.status_code, 200, response.content)
+        preview = response.json()['preview']
+        self.assertEqual((preview['total'], preview['paymentAccount'], preview['buyer']), ('1200.00', '1020', 'Test Buyer'))
+        self.assertIn('unqualified prices are Maloti', self.ai.call_args.args[0])
+        self.assertFalse(JournalEntry.objects.exists())
+
+    def test_number_only_payment_requires_an_account_before_ai_or_ledger_creation(self):
+        payload = self.payload()
+        payload['fields'] = {'summary': '3 bags worth 400 each', 'paymentDetails': '12345678', 'buyer': 'Test Buyer'}
+        response = self.post(payload)
+        self.assertEqual(response.status_code, 422)
+        self.assertEqual(response.json()['code'], 'VALIDATION_ERROR')
+        self.assertIn('paymentDetails', response.json()['fields'])
+        self.ai.assert_not_called()
+        self.assertFalse(USSDLedger.objects.exists())
+        self.assertFalse(RecordProposal.objects.exists())
+
     def test_conflicting_totals_and_incomplete_unit_prices_require_editing(self):
         payload = self.payload()
         payload['fields'] = {'summary': '2 weaves M1800 each', 'paymentDetails': 'paid in cash', 'buyer': 'Test Buyer'}

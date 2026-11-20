@@ -82,6 +82,7 @@ public class TransactionJourney {
             if (input.equals("1")) {
                 if (draft.frozen && (draft.proposal==null || !draft.action.equals("propose"))) submit(s);
                 else if (draft.frozen) router.go(s,"TX_PREVIEW");
+                else if (needsPaymentAccount(draft)) requestPaymentAccount(s);
                 else if (draft.node.equals("TX_REVIEW")) prepare(s);
                 else router.go(s,draft.node);
                 save(s);
@@ -97,6 +98,7 @@ public class TransactionJourney {
             String value = input.strip().replaceAll("\\s+", " ");
             if (value.equals("-") || value.isBlank() || value.length() > 256 || value.chars().anyMatch(Character::isISOControl)) { invalid(s); return; }
             String field = s.node.substring(9);
+            if (field.equals("paymentDetails") && numberOnly(value)) { s.error="tx.paymentAccountRequired"; return; }
             draft.fields.put(field, field.equals("buyer") && value.equals("@skip") ? "N/A" : value);
             if (draft.editing) { draft.editing = false; prepare(s); }
             else {
@@ -119,6 +121,12 @@ public class TransactionJourney {
         if (!"error.invalid".equals(s.error)) save(s);
     }
     private void prepare(Session s) { s.transaction.action="propose"; submit(s); }
+    private static boolean numberOnly(String value) { return value != null && value.strip().matches("[+0-9 ()-]+"); }
+    private static boolean needsPaymentAccount(TransactionDraft draft) { return numberOnly(draft.fields.get("paymentDetails")); }
+    private void requestPaymentAccount(Session s) {
+        s.transaction.editing=s.transaction.fields.keySet().containsAll(fields(s.transaction));
+        router.go(s,"TX_FIELD:paymentDetails"); s.error="tx.paymentAccountRequired";
+    }
     private void upgradeEditableCapture(TransactionDraft d) {
         if(d.summaryCapture || d.fields.containsKey("summary")) return;
         var m=new Messages(); var parts=new ArrayList<String>();
@@ -160,7 +168,9 @@ public class TransactionJourney {
                 d.editAfterCancel=false; d.action="confirm"; submit(s); return;
             }
             if (Set.of("VALIDATION_ERROR", "CLARIFICATION_REQUIRED").contains(error.code) && d.action.equals("propose")) {
-                d.frozen = false; d.operationId = UUID.randomUUID().toString(); upgradeEditableCapture(d); router.go(s, "TX_EDIT"); s.error = "tx.clarify";
+                d.frozen = false; d.operationId = UUID.randomUUID().toString(); upgradeEditableCapture(d);
+                if (needsPaymentAccount(d)) requestPaymentAccount(s);
+                else { router.go(s, "TX_EDIT"); s.error = "tx.clarify"; }
             } else if (error.code.equals("PROPOSAL_EXPIRED_OR_CHANGED") && d.action.equals("confirm")) {
                 // The API rejected confirmation. Retire that proposal before permitting a fresh one.
                 d.editAfterCancel=true; d.action="cancel"; submit(s);

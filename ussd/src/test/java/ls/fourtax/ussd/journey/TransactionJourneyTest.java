@@ -7,6 +7,47 @@ import java.util.*;
 import org.junit.jupiter.api.Test;
 
 class TransactionJourneyTest {
+    @Test void accountSelectionThenBuyerAutomaticallyShowsThePreviewForThreeBags() {
+        for (String language : List.of("1", "2")) {
+            var d=login("retail",language); d.backend.transactionTotal="1200.00";
+            d.steps("2","1","3 bags worth 400 each");
+            assertEquals("TX_FIELD:paymentDetails",d.state().node);
+            assertEquals(1,d.screens().pages(d.state()).size());
+            for (String key : List.of("1","2","3","4")) assertTrue(d.screens().current(d.state()).commands().containsKey(key));
+            d.input("12345678"); assertEquals("TX_FIELD:paymentDetails",d.state().node);
+            assertEquals("tx.paymentAccountRequired",d.state().error); assertFalse(d.state().transaction.fields.containsKey("paymentDetails"));
+            assertTrue(d.backend.transactionRequests.isEmpty());
+            d.input("3"); assertEquals("TX_FIELD:buyer",d.state().node);
+            d.input("Test Buyer"); assertEquals("TX_PREVIEW",d.state().node);
+            assertTrue(String.join("\n",d.screens().pages(d.state())).contains("M1200.00"));
+            assertFalse(d.last.message().contains("Create preview"));
+            assertEquals("paid in M-Pesa",d.backend.transactionRequests.values().iterator().next().fields().get("paymentDetails"));
+            assertTrue(d.backend.postedTransactions.isEmpty());
+        }
+    }
+    @Test void anOldRejectedDraftRequestsTheMissingAccountAndThenAutomaticallyPreviews() {
+        var d=login("retail","1"); d.steps("2","1","3 bags worth 400 each");
+        var state=d.state(); state.transaction.fields.put("paymentDetails","12345678");
+        state.transaction.fields.put("buyer","Test Buyer"); state.transaction.node="TX_EDIT";
+        d.store.saveTransaction(d.crypto.digest(d.mobile),state.transaction);
+        d.input("0"); d.start(); d.steps("1","001234","2","9");
+        assertEquals("TX_FIELD:paymentDetails",d.state().node); assertTrue(d.state().transaction.editing);
+        assertEquals("Test Buyer",d.state().transaction.fields.get("buyer"));
+        d.input("2"); assertEquals("TX_PREVIEW",d.state().node);
+        assertEquals("paid in bank",d.state().transaction.fields.get("paymentDetails"));
+        assertEquals(1,d.backend.transactionRequests.size());
+    }
+    @Test void rejectingAnOldNumericPaymentOpensItsAccountPromptInsteadOfTheEditMenu() {
+        var d=login("retail","1"); d.steps("2","1","3 bags worth 400 each");
+        var state=d.state(); state.transaction.fields.put("paymentDetails","12345678");
+        state.node="TX_FIELD:buyer";
+        d.store.saveTransaction(d.crypto.digest(d.mobile),state.transaction);
+        d.store.saveSession(d.crypto.digest("test:TEST:"+d.sessionId+":"+d.mobile),state);
+        d.backend.transactionFailure="VALIDATION_ERROR"; d.input("Test Buyer");
+        assertEquals("TX_FIELD:paymentDetails",d.state().node); assertEquals("tx.paymentAccountRequired",d.state().error);
+        d.backend.transactionFailure=null; d.input("4"); assertEquals("TX_PREVIEW",d.state().node);
+        assertEquals("Test Buyer",d.state().transaction.fields.get("buyer"));
+    }
     @Test void evenOneBusinessMustBeListedAndChosenBeforeEnteringATransaction() {
         for (String language : List.of("1", "2")) {
             var d=login("retail",language); d.input("2");

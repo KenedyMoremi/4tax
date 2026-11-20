@@ -207,6 +207,11 @@ public class Screen {
         var d=s.transaction;
         if (s.node.startsWith("TX_FIELD:")) {
             var c=new Content(TransactionJourney.screen(s,messages)); c.input=true;
+            if (s.node.equals("TX_FIELD:paymentDetails")) {
+                for (var account : List.of(new String[]{"1000","cash"}, new String[]{"1010","bank"},
+                        new String[]{"1020","M-Pesa"}, new String[]{"1030","EcoCash"}))
+                    c.choices.add(new Choice(m(s,"tx.account."+account[0]),"paid in "+account[1]));
+            }
             if (s.node.equals("TX_FIELD:buyer")) action(c,s,"7","nav.skip","@skip"); return c;
         }
         if (s.node.equals("TX_BUSINESS") || s.node.equals("TX_EDIT")) {

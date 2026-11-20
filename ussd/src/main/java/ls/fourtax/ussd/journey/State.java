@@ -4,7 +4,7 @@ import java.util.*;
 import ls.fourtax.ussd.api.Contracts.*;
 
 public final class State {
-    public static final int NAVIGATION_VERSION=4;
+    public static final int NAVIGATION_VERSION=5;
     private State() {}
     public static final class Session {
         public int navigationVersion;

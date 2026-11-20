@@ -87,7 +87,7 @@
                             "type": "string",
                             "minLength": 1,
                             "maxLength": 256,
-                            "description": "Paid account (cash, bank, M-Pesa, EcoCash), or explicitly unpaid with a due date."
+                            "description": "Paid account selected as cash, bank, M-Pesa or EcoCash, or explicitly unpaid with a due date. A phone/account number alone is insufficient."
                           },
                           "buyer": {
                             "type": "string",
