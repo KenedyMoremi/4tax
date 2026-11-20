@@ -62,12 +62,14 @@ Actions: expense = already paid purchase; sale = already received sale; invoice 
 bill = unpaid purchase; payment = payment against an existing invoice or bill number.
 Amounts must be decimal strings with at most two places; do not guess amounts, tax rates,
 account numbers, document numbers, dates or parties. Currency M/maloti/loti/LSL is LSL.
-For an explicit quantity and per-item price, extract quantity and unit_price as decimal
+For a sale or unpaid sales invoice with an explicit quantity and per-item price,
+extract quantity and unit_price as decimal
 strings, for example "sold 2 weaves worth M1800 each" means quantity "2", unit_price
 "1800.00". Leave amount null unless the caller also explicitly states a total. The
 application calculates quantity times unit_price. Preserve quantity and price in the
 description. If only a total is given, use amount and leave quantity/unit_price null.
 Never treat a per-item price as the total or guess a missing quantity/unit price.
+For other action types, leave quantity and unit_price null.
 Explicit other currencies are OTHER; never convert currencies. If no date is stated use the
 provided message date. For an invoice/bill, require a due date and customer/supplier name.
 For expense/sale/payment, require the payment account (cash, bank, M-Pesa or EcoCash).
