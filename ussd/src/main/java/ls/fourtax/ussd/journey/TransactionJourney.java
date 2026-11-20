@@ -120,6 +120,18 @@ public class TransactionJourney {
         if (!"error.invalid".equals(s.error)) save(s);
     }
     private void prepare(Session s) { s.transaction.action="propose"; submit(s); }
+    private void upgradeEditableCapture(TransactionDraft d) {
+        if(d.summaryCapture || d.fields.containsKey("summary")) return;
+        var m=new Messages(); var parts=new ArrayList<String>();
+        for(String field:fields(d)) if(!Set.of("paymentDetails","buyer").contains(field) && d.fields.containsKey(field))
+            parts.add(m.text(d.language,"tx.field."+field)+": "+d.fields.get(field));
+        String summary=String.join("; ",parts);
+        // Preserve oversized legacy answers in their original form rather than truncate them.
+        if(summary.isBlank() || summary.length()>256) return;
+        var values=new LinkedHashMap<String,String>(); values.put("summary",summary);
+        for(String field:List.of("paymentDetails","buyer")) if(d.fields.containsKey(field)) values.put(field,d.fields.get(field));
+        d.fields.clear(); d.fields.putAll(values); d.summaryCapture=true;
+    }
     private void submit(Session s) {
         var d = s.transaction; d.frozen = true;
         router.go(s, "TX_RETRY");
@@ -139,7 +151,7 @@ public class TransactionJourney {
             } else if (reply.status().equals("cancelled")) {
                 if(d.editAfterCancel) {
                     d.editAfterCancel=false; d.frozen=false; d.proposal=null; d.action="propose";
-                    d.operationId=UUID.randomUUID().toString(); router.go(s,"TX_EDIT");
+                    d.operationId=UUID.randomUUID().toString(); upgradeEditableCapture(d); router.go(s,"TX_EDIT");
                 } else { store.deleteTransaction(crypto.digest(s.mobile)); s.transaction=null; router.go(s,"AUTH_MENU"); s.error="tx.cancelled"; }
             }
             else if (reply.status().equals("pending") && d.action.equals("propose")) { d.proposal = reply; router.go(s, "TX_PREVIEW"); }
@@ -149,7 +161,7 @@ public class TransactionJourney {
                 d.editAfterCancel=false; d.action="confirm"; submit(s); return;
             }
             if (Set.of("VALIDATION_ERROR", "CLARIFICATION_REQUIRED").contains(error.code) && d.action.equals("propose")) {
-                d.frozen = false; d.operationId = UUID.randomUUID().toString(); router.go(s, "TX_EDIT"); s.error = "tx.clarify";
+                d.frozen = false; d.operationId = UUID.randomUUID().toString(); upgradeEditableCapture(d); router.go(s, "TX_EDIT"); s.error = "tx.clarify";
             } else if (error.code.equals("PROPOSAL_EXPIRED_OR_CHANGED") && d.action.equals("confirm")) {
                 // The API rejected confirmation. Retire that proposal before permitting a fresh one.
                 d.editAfterCancel=true; d.action="cancel"; submit(s);

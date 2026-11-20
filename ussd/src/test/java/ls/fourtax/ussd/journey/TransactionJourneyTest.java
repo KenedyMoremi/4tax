@@ -49,6 +49,29 @@ class TransactionJourneyTest {
         d.start(); d.steps("1","001234","2","9"); assertEquals("TX_PREVIEW",d.state().node);
         assertTrue(d.backend.postedTransactions.isEmpty()); d.advance(); assertEquals("TX_DONE",d.state().node);
     }
+    Driver legacyRetry() {
+        var d=login("retail","1"); d.input("2"); var state=d.state();
+        state.transaction.summaryCapture=false; state.transaction.frozen=true;
+        state.transaction.fields.putAll(Map.of("goods","2 weaves at M1800 each","totalValue","M3600 total","paymentDetails","cash","buyer","Test Buyer"));
+        state.node="TX_RETRY"; state.transaction.node=state.node;
+        d.store.saveTransaction(d.crypto.digest(d.mobile),state.transaction);
+        d.store.saveSession(d.crypto.digest("test:TEST:"+d.sessionId+":"+d.mobile),state); return d;
+    }
+    @Test void anOlderRejectedDraftMovesToTheThreeFieldEditorWithoutLosingItsAnswers() {
+        var d=legacyRetry(); String old=d.state().transaction.operationId; d.backend.transactionFailure="CLARIFICATION_REQUIRED";
+        d.input("9"); assertEquals("TX_EDIT",d.state().node); assertTrue(d.state().transaction.summaryCapture);
+        assertNotEquals(old,d.state().transaction.operationId); assertEquals(Set.of("summary","paymentDetails","buyer"),d.state().transaction.fields.keySet());
+        assertTrue(d.state().transaction.fields.get("summary").contains("2 weaves at M1800 each"));
+        assertTrue(d.state().transaction.fields.get("summary").contains("M3600 total"));
+        assertEquals("Test Buyer",d.state().transaction.fields.get("buyer"));
+        d.input("1"); d.backend.transactionFailure=null; d.input("sold 2 weaves worth M1800 each");
+        assertEquals("TX_PREVIEW",d.state().node); assertEquals(3,d.backend.transactionRequests.values().iterator().next().fields().size());
+    }
+    @Test void anOlderUnconfirmedRequestKeepsItsExactPayloadAndOperationUntilResolved() {
+        var d=legacyRetry(); var before=d.state().transaction; d.backend.transactionFailure="SERVICE_UNAVAILABLE";
+        d.input("9"); assertEquals("TX_RETRY",d.state().node); assertFalse(d.state().transaction.summaryCapture);
+        assertEquals(before.operationId,d.state().transaction.operationId); assertEquals(before.fields,d.state().transaction.fields);
+    }
     Driver login(String sector,String language) {
         var d=new Driver(new MemoryStore(),new FakeBackend()); d.backend.pins.put(d.mobile,"001234");
         d.backend.ownedBusinesses.add(new BusinessSummary("business-1","4TAX-TEST0001",sector,"Test business"));
