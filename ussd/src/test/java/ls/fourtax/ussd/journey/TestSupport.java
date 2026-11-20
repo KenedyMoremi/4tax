@@ -50,6 +50,7 @@ public final class TestSupport {
         public String lookupFailure;
         public String transactionFailure;
         public boolean loseTransactionReply;
+        public boolean expiredConfirmation;
         final Map<String, String> pins = new HashMap<>();
         @Override public boolean ownerExists(String mobile) { if (lookupFailure != null) throw new Failure(lookupFailure); return pins.containsKey(mobile); }
         @Override public BusinessPage businesses(String token, int page) {
@@ -68,6 +69,8 @@ public final class TestSupport {
         @Override public TransactionReply resolveTransaction(String token, TransactionAction request, String key) {
             transactionAttempts.add(key);
             if (transactionFailure != null) throw new Failure(transactionFailure);
+            if(request.action().equals("cancel") && postedTransactions.contains(key)) throw new Failure("ALREADY_POSTED");
+            if(request.action().equals("confirm") && expiredConfirmation) { expiredConfirmation=false; throw new Failure("PROPOSAL_EXPIRED_OR_CHANGED"); }
             if (request.action().equals("confirm")) postedTransactions.add(key);
             if (loseTransactionReply) { loseTransactionReply = false; throw new Failure("SERVICE_UNAVAILABLE"); }
             return new TransactionReply("txn-1", request.action().equals("confirm") ? "posted" : "cancelled", "TESTPREVIEW1", "Sale", "Recorded");
@@ -116,6 +119,21 @@ public final class TestSupport {
         }
         public Session state() { return store.session(crypto.digest("test:TEST:" + sessionId + ":" + mobile)); }
         public void steps(String... inputs) { for (String input : inputs) input(input); }
+        public Screen screens() { return new Screen(new Messages(),new NodeRouter(),settings()); }
+        public void lastPage() {
+            for(int i=0;i<100 && state().page<screens().pages(state()).size()-1;i++) input("9");
+        }
+        public void advance() { lastPage(); input("9"); }
+        public void choose(String logical) {
+            for(int i=0;i<100;i++) {
+                var page=screens().current(state());
+                for(var entry:page.commands().entrySet()) if(entry.getValue().equals(logical)) { input(entry.getKey()); return; }
+                if(!"@next".equals(page.commands().get("9"))) throw new AssertionError("Choice not on menu: "+logical);
+                input("9");
+            }
+            throw new AssertionError("Menu did not terminate");
+        }
+        public void editField(String name) { lastPage(); input("1"); choose(Integer.toString(new NodeRouter().fields(state().draft).indexOf(name)+1)); }
         public void transportToReview(String language) {
             start(); steps(language, "1", "1"); fillToReview();
         }
@@ -128,7 +146,7 @@ public final class TestSupport {
                 if (node.startsWith("COLLECTION:")) {
                     String group = node.substring(11);
                     int minimum = RegistrationSchema.group(state().draft.sector, group).get("minimum").asInt();
-                    input(state().draft.collections.getOrDefault(group, List.of()).size() < Math.max(minimum, 2) ? "1" : "2");
+                    input(state().draft.collections.getOrDefault(group, List.of()).size() < Math.max(minimum, 2) ? "1" : "9");
                 } else if (node.startsWith("FIELD:")) {
                     String name = node.substring(6);
                     var field = RegistrationSchema.field(state().draft.sector, name);
@@ -149,7 +167,8 @@ public final class TestSupport {
                         case "other_description" -> "Synthetic other business";
                         default -> "1";
                     };
-                    input(value);
+                    if(field.has("choices") && !field.get("type").asText().equals("multiple_choice")) choose(value);
+                    else input(value);
                 } else throw new AssertionError("Unexpected node: " + node);
             }
             if (!targets.contains(state().node)) throw new AssertionError("Did not reach " + targets + "; stopped at " + state().node);

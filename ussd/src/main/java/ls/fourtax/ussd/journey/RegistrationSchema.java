@@ -40,7 +40,34 @@ public final class RegistrationSchema {
         return category != null && "other".equals(draft.answers.get(category));
     }
     public static boolean applies(State.Draft draft, String field) {
-        return !field.equals("other_description") || requiresOtherDescription(draft);
+        if (field.equals("other_description")) return requiresOtherDescription(draft);
+        if (field.equals("overnight")) return !daytime(draft);
+        if (Set.of("farmland_size", "farmland_unit").contains(field)) return !"0".equals(draft.answers.get("farmland_count"));
+        return true;
+    }
+    public static boolean daytime(State.Draft draft) {
+        String start = draft.answers.get("opens_at"), end = draft.answers.get("closes_at");
+        return start != null && end != null && end.compareTo(start) > 0;
+    }
+    public static void derive(State.Draft draft) {
+        if (draft.mayHaveSubmitted) return;
+        if (daytime(draft)) draft.answers.put("overnight", "false");
+        if ("0".equals(draft.answers.get("farmland_count"))) {
+            draft.answers.put("farmland_size", "0"); draft.answers.put("farmland_unit", "");
+        }
+    }
+    public static int minimum(State.Draft draft, String groupName) {
+        return groupName.equals("livestock") && "livestock".equals(draft.answers.get("activity")) ? 1
+                : group(draft.sector, groupName).get("minimum").asInt();
+    }
+    public static boolean canSkip(State.Draft draft, String name) {
+        if (name.contains(".")) {
+            String groupName = name.substring(0, name.indexOf('.'));
+            var group = group(draft.sector, groupName);
+            return name.equals(groupName + "." + group.get("fields").get(0).get("name").asText())
+                    && draft.collections.getOrDefault(groupName, List.of()).size() >= minimum(draft, groupName);
+        }
+        return !Set.of("overnight", "other_description", "farmland_unit").contains(name) && !field(draft.sector, name).get("required").asBoolean();
     }
     public static JsonNode group(String sector, String name) {
         for (var group : sector(sector).get("collections")) if (group.get("name").asText().equals(name)) return group;
@@ -62,25 +89,28 @@ public final class RegistrationSchema {
     public static String prompt(String sector, String name, String language) {
         var f = field(sector, name);
         var messages = new Messages();
-        if (name.equals("employees.name")) return messages.text(language, "registration.employeeNamePrompt")
-                + "\n" + messages.text(language, "registration.skipEmployee");
+        if (name.equals("employees.name")) return messages.text(language, "registration.employeeNamePrompt");
         if (name.equals("other_description")) return messages.text(language, "registration.describeOther");
+        if (name.equals("overnight")) return messages.text(language, "registration.overnightPrompt");
         var result = new StringBuilder(label(sector, name, language));
         String type = f.get("type").asText();
         if (type.equals("boolean")) return result + "\n1. " + messages.text(language, "registration.yes") + "\n2. " + messages.text(language, "registration.no");
         if (f.has("choices")) {
-            if (type.equals("multiple_choice")) result.append(messages.text(language, "registration.commas"));
+            if (type.equals("multiple_choice")) result.append(' ').append(messages.text(language, "registration.commas"));
             int index = 1;
             for (var choice : f.get("choices")) result.append("\n").append(index++).append(". ").append(messages.text(language, "registration.choice." + choice.get("value").asText()));
         } else if (type.equals("time")) result.append(" (HH:MM)");
-        else if (type.equals("integer") || type.equals("decimal")) result.append(messages.text(language, "registration.zero"));
-        else if (!f.get("required").asBoolean()) result.append(messages.text(language, "registration.skip"));
+        else if (type.equals("integer") || type.equals("decimal")) {
+            boolean zero = !f.has("min_value") || new BigDecimal(f.get("min_value").asText()).signum() == 0;
+            result.append('\n').append(messages.text(language, zero ? "registration.numberZero" : "registration.number"));
+        }
         return result.toString();
     }
     public static String parse(String sector, String name, String input) {
         var f = field(sector, name);
         String type = f.get("type").asText();
-        if (input.equals("-") && !f.get("required").asBoolean()) return "";
+        if (input.equals("@skip") && !f.get("required").asBoolean()) return "";
+        if (input.equals("-") || input.equals("@skip")) throw new IllegalArgumentException();
         if (type.equals("boolean")) {
             if (!Set.of("1","2").contains(input)) throw new IllegalArgumentException();
             return input.equals("1") ? "true" : "false";

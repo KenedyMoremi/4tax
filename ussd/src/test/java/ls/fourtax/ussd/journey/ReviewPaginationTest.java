@@ -26,6 +26,8 @@ class ReviewPaginationTest {
         assertTrue(String.join("\n", screen.pages(s)).contains("Employees and monthly salaries: 0"));
         s.draft.collections.put("employees", List.of(Map.of("name", "Synthetic".repeat(10), "salary_range", "20000_plus")));
         for (String page : screen.pages(s)) assertTrue(page.length() <= 160);
-        assertTrue(String.join("", screen.pages(s)).contains("Monthly salary"));
+        String content=String.join("\n",screen.pages(s)).replaceAll("(?m)^\\([0-9]+/[0-9]+\\)$|^[089]\\. (?:Back|Exit|Next|Confirm)$|^1\\. Edit$", "").replace("\n", "");
+        assertTrue(content.contains("Synthetic".repeat(10)));
+        assertTrue(content.contains("M20,000 and above/month"));
     }
 }

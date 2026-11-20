@@ -27,7 +27,7 @@ public class TransactionJourney {
     }
     public void begin(Session s) {
         s.draft = null; s.transaction = store.transaction(crypto.digest(s.mobile)); s.transactionResult = null;
-        if (s.transaction != null && s.ownerId.equals(s.transaction.ownerId)) {
+        if (s.transaction != null && s.transaction.meaningful() && s.ownerId.equals(s.transaction.ownerId)) {
             if (s.transaction.proposal != null && s.transaction.proposal.status().equals("posted")) {
                 s.transactionResult = s.transaction.proposal.reference(); s.transaction = null; router.go(s, "TX_DONE");
             } else router.go(s, "TX_RESUME");
@@ -43,6 +43,8 @@ public class TransactionJourney {
             else router.go(s, s.businesses.isEmpty() ? "TX_EMPTY" : "TX_BUSINESS");
         } catch (Backend.Failure error) { fail(s, error, "TX_LOAD"); }
     }
+    public void nextBusinesses(Session s) { load(s,s.nextBusinessPage); }
+    public void previousBusinesses(Session s) { load(s,s.businessPage-1); }
     private void select(Session s, BusinessSummary business) {
         if (!RegistrationSchema.sectors().contains(business.sector())) { s.error = "error.unavailable"; return; }
         s.transaction = new TransactionDraft(); s.transaction.ownerId = s.ownerId;
@@ -56,9 +58,7 @@ public class TransactionJourney {
         if (s.node.equals("TX_BUSINESS")) {
             try {
                 int option = Integer.parseInt(input);
-                if (option == 6 && s.nextBusinessPage != null) load(s, s.nextBusinessPage);
-                else if (option == 7 && s.businessPage > 1) load(s, s.businessPage-1);
-                else if (option >= 1 && option <= s.businesses.size()) select(s, s.businesses.get(option-1));
+                if (option >= 1 && option <= s.businesses.size()) select(s, s.businesses.get(option-1));
                 else invalid(s);
             } catch (NumberFormatException e) { invalid(s); }
             return;
@@ -73,7 +73,13 @@ public class TransactionJourney {
         var draft = s.transaction;
         if (draft == null) { router.go(s, "AUTH_MENU"); return; }
         if (s.node.equals("TX_RESUME")) {
-            if (input.equals("1")) router.go(s, draft.node);
+            if (input.equals("1")) {
+                if (draft.frozen && (draft.proposal==null || !draft.action.equals("propose"))) submit(s);
+                else if (draft.frozen) router.go(s,"TX_PREVIEW");
+                else if (draft.node.equals("TX_REVIEW")) prepare(s);
+                else router.go(s,draft.node);
+                save(s);
+            }
             else if (input.equals("2") && !draft.frozen) {
                 store.deleteTransaction(crypto.digest(s.mobile)); s.transaction = null; load(s, 1);
             } else invalid(s);
@@ -83,31 +89,30 @@ public class TransactionJourney {
         if (s.node.startsWith("TX_FIELD:")) {
             if (draft.frozen) { router.go(s, draft.proposal == null ? "TX_RETRY" : "TX_PREVIEW"); return; }
             String value = input.strip().replaceAll("\\s+", " ");
-            if (value.isBlank() || value.length() > 256 || value.chars().anyMatch(Character::isISOControl)) { invalid(s); return; }
+            if (value.equals("-") || value.isBlank() || value.length() > 256 || value.chars().anyMatch(Character::isISOControl)) { invalid(s); return; }
             String field = s.node.substring(9);
-            draft.fields.put(field, field.equals("buyer") && value.equals("-") ? "N/A" : value);
-            if (draft.editing) { draft.editing = false; router.go(s, "TX_REVIEW"); }
+            draft.fields.put(field, field.equals("buyer") && value.equals("@skip") ? "N/A" : value);
+            if (draft.editing) { draft.editing = false; prepare(s); }
             else {
                 int next = names.indexOf(field)+1;
-                router.go(s, next == names.size() ? "TX_REVIEW" : "TX_FIELD:" + names.get(next));
+                if (next==names.size()) prepare(s); else router.go(s,"TX_FIELD:"+names.get(next));
             }
         } else if (s.node.equals("TX_EDIT")) {
+            if(input.equals("@prepare")) { prepare(s); return; }
             try {
                 int choice = Integer.parseInt(input)-1;
                 if (choice < 0 || choice >= names.size()) { invalid(s); return; }
                 draft.editing = true; router.go(s, "TX_FIELD:" + names.get(choice));
             } catch (NumberFormatException e) { invalid(s); }
-        } else if (s.node.equals("TX_REVIEW")) {
-            if (input.equals("1")) { draft.action = "propose"; submit(s); }
-            else if (input.equals("2") && !draft.frozen) router.go(s, "TX_EDIT");
-            else invalid(s);
         } else if (s.node.equals("TX_PREVIEW")) {
-            if (input.equals("1") || input.equals("2")) { draft.action = input.equals("1") ? "confirm" : "cancel"; submit(s); }
+            if(input.equals("@edit")) { draft.editAfterCancel=true; draft.action="cancel"; submit(s); }
+            else if (input.equals("1") || input.equals("2")) { draft.editAfterCancel=false; draft.action = input.equals("1") ? "confirm" : "cancel"; submit(s); }
             else invalid(s);
         } else if (s.node.equals("TX_RETRY")) { if (input.equals("1")) submit(s); else invalid(s); }
         else invalid(s);
         if (!"error.invalid".equals(s.error)) save(s);
     }
+    private void prepare(Session s) { s.transaction.action="propose"; submit(s); }
     private void submit(Session s) {
         var d = s.transaction; d.frozen = true;
         router.go(s, "TX_RETRY");
@@ -124,15 +129,24 @@ public class TransactionJourney {
                 d.proposal = new TransactionReply(reply.transactionId(), "posted", reply.reference(), "", "");
                 store.saveTransaction(crypto.digest(s.mobile), d);
                 s.transactionResult = reply.reference(); s.transaction = null; router.go(s, "TX_DONE");
-            } else if (reply.status().equals("cancelled")) { store.deleteTransaction(crypto.digest(s.mobile)); s.transaction = null; router.go(s, "AUTH_MENU"); s.error = "tx.cancelled"; }
+            } else if (reply.status().equals("cancelled")) {
+                if(d.editAfterCancel) {
+                    d.editAfterCancel=false; d.frozen=false; d.proposal=null; d.action="propose";
+                    d.operationId=UUID.randomUUID().toString(); router.go(s,"TX_EDIT");
+                } else { store.deleteTransaction(crypto.digest(s.mobile)); s.transaction=null; router.go(s,"AUTH_MENU"); s.error="tx.cancelled"; }
+            }
             else if (reply.status().equals("pending") && d.action.equals("propose")) { d.proposal = reply; router.go(s, "TX_PREVIEW"); }
             else throw new Backend.Failure("SERVICE_UNAVAILABLE");
         } catch (Backend.Failure error) {
+            if(error.code.equals("ALREADY_POSTED") && d.action.equals("cancel")) {
+                d.editAfterCancel=false; d.action="confirm"; submit(s); return;
+            }
             if (Set.of("VALIDATION_ERROR", "CLARIFICATION_REQUIRED").contains(error.code) && d.action.equals("propose")) {
-                d.frozen = false; d.operationId = UUID.randomUUID().toString(); router.go(s, "TX_REVIEW"); s.error = "tx.clarify";
-            } else if (error.code.equals("PROPOSAL_EXPIRED_OR_CHANGED")) {
-                d.frozen = false; d.proposal = null; d.action = "propose"; d.operationId = UUID.randomUUID().toString();
-                router.go(s, "TX_REVIEW"); s.error = "tx.expired";
+                d.frozen = false; d.operationId = UUID.randomUUID().toString(); router.go(s, "TX_EDIT"); s.error = "tx.clarify";
+            } else if (error.code.equals("PROPOSAL_EXPIRED_OR_CHANGED") && d.action.equals("confirm")) {
+                // The API rejected confirmation. Retire that proposal before permitting a fresh one.
+                d.editAfterCancel=true; d.action="cancel"; submit(s);
+                if(s.node.equals("TX_EDIT")) s.error="tx.expired";
             } else fail(s, error, "TX_RETRY");
         }
     }
@@ -150,13 +164,11 @@ public class TransactionJourney {
             var names = fields(d.business.sector()); int previous = names.indexOf(s.node.substring(9))-1;
             if (previous >= 0) { router.go(s, "TX_FIELD:" + names.get(previous)); return; }
         }
-        if (s.node.equals("TX_REVIEW") && d != null) { router.go(s, "TX_FIELD:buyer"); return; }
-        if (s.node.equals("TX_EDIT")) { router.go(s, "TX_REVIEW"); return; }
         s.transaction = null; router.go(s, "AUTH_MENU");
     }
     private void invalid(Session s) { s.error = "error.invalid"; }
     private void save(Session s) {
-        if (s.transaction != null) {
+        if (s.transaction != null && s.transaction.meaningful()) {
             if (s.node.startsWith("TX_") && !s.node.equals("TX_RESUME")) s.transaction.node = s.node;
             store.saveTransaction(crypto.digest(s.mobile), s.transaction);
         }
@@ -165,29 +177,6 @@ public class TransactionJourney {
         var d = s.transaction;
         if (s.node.equals("TX_RESUME")) return m.text(s.language, d.frozen ? "tx.resumeFrozen" : "tx.resume");
         if (s.node.startsWith("TX_FIELD:")) return m.text(s.language, "tx.prompt." + s.node.substring(9));
-        if (s.node.equals("TX_BUSINESS")) {
-            var text = new StringBuilder(m.text(s.language, "tx.chooseBusiness"));
-            for (int i=0; i<s.businesses.size(); i++) {
-                var b = s.businesses.get(i);
-                String label = b.businessName() == null || b.businessName().isBlank() ? b.reference().substring(Math.max(0, b.reference().length()-8)) : b.businessName();
-                text.append('\n').append(i+1).append(". ").append(m.text(s.language, "tx.sector."+b.sector())).append(" / ").append(label);
-            }
-            if (s.nextBusinessPage != null) text.append('\n').append(m.text(s.language, "tx.moreBusinesses"));
-            if (s.businessPage > 1) text.append('\n').append(m.text(s.language, "tx.previousBusinesses"));
-            return text.toString();
-        }
-        if (s.node.equals("TX_EDIT") || s.node.equals("TX_REVIEW")) {
-            var names = fields(d.business.sector());
-            var text = new StringBuilder(m.text(s.language, s.node.equals("TX_EDIT") ? "edit" : "tx.review"));
-            for (int i=0; i<names.size(); i++) {
-                String key = names.get(i); text.append('\n');
-                if (s.node.equals("TX_EDIT")) text.append(i+1).append(". ");
-                text.append(m.text(s.language, "tx.field."+key));
-                if (s.node.equals("TX_REVIEW")) text.append(": ").append(d.fields.getOrDefault(key, ""));
-            }
-            if (s.node.equals("TX_REVIEW")) text.append('\n').append(m.text(s.language, "tx.reviewActions"));
-            return text.toString();
-        }
         if (s.node.equals("TX_PREVIEW")) {
             var preview = d.proposal.preview();
             String body = d.proposal.summary();
@@ -204,10 +193,11 @@ public class TransactionJourney {
                                 ? m.text(s.language, "tx.account."+preview.paymentAccount()) : preview.paymentAccount());
                 if (preview.dueDate() != null && !preview.dueDate().isBlank()) body += "\n" + m.text(s.language, "tx.preview.dueDate") + ": " + preview.dueDate();
             }
-            return m.text(s.language, "tx.preview") + "\n" + body + "\n" + m.text(s.language, "tx.confirmActions");
+            return m.text(s.language, "tx.preview") + "\n" + body;
         }
         if (s.node.equals("TX_DONE")) return m.text(s.language, "tx.success", s.transactionResult);
         if (s.node.equals("TX_EMPTY")) return m.text(s.language, "tx.empty");
+        if (s.node.equals("TX_LOAD")) return m.text(s.language,"tx.loadFailed");
         return m.text(s.language, "tx.retry");
     }
 }

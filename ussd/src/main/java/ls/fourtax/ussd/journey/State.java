@@ -6,6 +6,7 @@ import ls.fourtax.ussd.api.Contracts.*;
 public final class State {
     private State() {}
     public static final class Session {
+        public int navigationVersion;
         public String mobile;
         public String language = "en";
         public String node = "LANGUAGE";
@@ -31,7 +32,7 @@ public final class State {
         @com.fasterxml.jackson.annotation.JsonIgnore
         public String storageKey;
         public Session() {}
-        public Session(String mobile) { this.mobile = mobile; }
+        public Session(String mobile) { this.mobile = mobile; this.navigationVersion = 2; }
         public void clearAuthentication() { token = null; ownerId = null; tokenExpiry = 0; clearPin(); }
         public void clearPin() { pinDigest = null; pinNonce = null; }
     }
@@ -43,9 +44,11 @@ public final class State {
         public Map<String, String> fields = new LinkedHashMap<>();
         public boolean editing;
         public boolean frozen;
+        public boolean editAfterCancel;
         public String action = "propose";
-        public String node = "TX_REVIEW";
+        public String node = "TX_EDIT";
         public TransactionReply proposal;
+        public boolean meaningful() { return !fields.isEmpty() || frozen || proposal != null; }
     }
     public static final class Draft {
         public int schemaVersion = 2;
@@ -59,5 +62,7 @@ public final class State {
         public boolean mayHaveSubmitted;
         public String ownerId;
         public Draft() {}
+        public boolean meaningful() { return (authenticationStarted && ownerId==null) || mayHaveSubmitted || !answers.isEmpty()
+                || collections.values().stream().anyMatch(rows -> !rows.isEmpty()); }
     }
 }

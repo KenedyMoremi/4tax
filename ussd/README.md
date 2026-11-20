@@ -29,7 +29,7 @@ Outbound auth, registration and JWKS calls use `BACKEND_CONNECT_TIMEOUT=5s` and 
 
 The five sectors are Transport, Services, E-Commerce, Retail and Agriculture. Their choices and fields are generated from the Django web forms into `registration-schema.json`; run `python manage.py export_registration_schema` at the repository root after changing those forms. CI checks for drift. See [field definitions and API setup](../docs/USSD_REGISTRATION.md).
 
-All sectors collect owner names, national identity number, location, monthly turnover and named employees with a separate monthly salary choice. Employee capture opens directly with the full-name prompt, followed by a monthly salary range menu. After each employee, choose Add another or Continue; Clear entries resets the unsaved employee list. Enter `-` at the name prompt to continue without adding an employee. Route and livestock collection menus support Add another / Continue / Clear entries. Transport starts with Taxi/Cab/Catch-a-ride before details. The Other description is shown and required only when Other is selected in E-Commerce, Retail or Agriculture; listed types skip it in registration, review and editing. Agriculture separately captures farmland count and size/unit. Exact decimal amounts are strings, and ranges use stable categorical keys. Existing registered entities are not overwritten.
+All sectors collect owner names, national identity number, location, monthly turnover and named employees with a separate monthly salary choice. Employee capture opens directly with the full-name prompt, followed by a monthly salary range menu. After each employee, choose Add another or Continue; Clear entries resets the unsaved employee list. Choose `7. Skip` at the name prompt to continue without adding an employee. Empty route/livestock lists open directly at the first entry; routes and livestock activity require at least one row. Collection actions appear only when usable. Transport starts with Taxi/Cab/Catch-a-ride before details. The Other description is shown and required only when Other is selected in E-Commerce, Retail or Agriculture; listed types skip it in registration, review and editing. Agriculture captures farmland count and, when positive, size/unit. Zero plots records zero size with no applicable unit; farming requires land. Daytime hours derive `overnight=false`; overnight/24-hour hours require confirmation or correction. Exact decimal amounts are strings, and ranges use stable categorical keys. Existing registered entities are not overwritten.
 
 Choose English or Sesotho. USSD checks the caller number with auth: existing owners go straight to PIN login, while new owners see Register business and Login. If the lookup fails, Retry/Login is shown without assuming the number is unregistered. A new owner completes business details, review/edit, PIN creation and confirmation. With an application JWT cached or obtained first, USSD calls auth to create the account and obtain an owner JWT, then calls the external API to create the entity. The PIN is sent only to auth.
 
@@ -37,16 +37,18 @@ Existing owners log in using the MNO-supplied caller number and PIN. Their post-
 
 Editing existing registered entities remains deferred. The authenticated menu offers Add business and Add transaction. Editing during registration is available from review.
 
-- `0`: Back; `99`: Exit.
-- `88` / `87`: Next/previous page on multi-page screens.
-- Optional text accepts `-` to skip. Numeric values that match navigation codes can use a leading zero (for example, `00` for zero or `099` for a count of 99); exact fares can use `0.00` or `99.00`. Identity numbers remain unchanged strings.
+- `8. Back`: previous page, or previous screen from the first page; `0. Exit` ends the session.
+- `9. Next` advances pages; the last page offers `9. Continue`, `9. Confirm` or `9. Confirm and post` only when applicable.
+- `7. Skip` appears only for optional answers. Weekday `7` still means Sunday.
+- Numeric values that match displayed controls use a leading zero: `08` for eight and `00` for zero. `9` is a normal answer when no Continue/Next action is displayed. Identity numbers and six-digit PINs retain leading zeros.
+- Menus use page-local choices `1–7`; longer menus page without multi-digit choices. Only commands displayed on the current page are accepted. The welcome, main and PIN-login screens retain their existing clean layout.
 - Screen text defaults to a configurable 160-character limit.
 
 Every prompt, validation message and outcome has English and Sesotho wording in `src/main/resources/messages*.properties`. **Sesotho is draft copy requiring fluent-speaker review before live use.**
 
 ## Sessions, recovery and retries
 
-Redis retains unfinished drafts for 15 minutes after the last meaningful update. Invalid input and pagination do not extend the draft. Ending a session clears its authenticated context. A returning owner must log in before resuming once account creation has begun.
+Redis retains unfinished drafts for 15 minutes after the last meaningful update. Opening registration or selecting a business without entering an answer does not create a resumable draft. Navigation version 2 ends older active sessions with a redial message, preserving drafts, operation keys and receipts; cached replies are versioned too. Invalid input and pagination do not extend the draft. Ending a session clears its authenticated context. A returning owner must log in before resuming once account creation has begun.
 
 Drafts exclude PIN values and bearer tokens. Active sessions can contain a short-lived JWT and a temporary keyed digest for PIN confirmation. Raw PINs are never stored in Redis. Data keys are keyed digests of caller/session identifiers.
 
@@ -54,7 +56,7 @@ If auth succeeds but business creation fails, keep the auth account and draft. R
 
 ## Callback interfaces
 
-`POST /ussd/callback/grapevine` accepts `application/xml` or `text/xml` with `X-Gateway-Key` from this service's configuration. Examples: [initial](examples/initial.xml), [action](examples/action.xml), [abort](examples/abort.xml).
+`POST /ussd/callback/grapevine` accepts `application/xml` or `text/xml` with `X-Gateway-Key` from this service's configuration. Examples: [initial](examples/initial.xml), [action](examples/action.xml), [abort](examples/abort.xml), [Skip](examples/skip.xml) (only on an optional screen) and [Exit](examples/exit.xml).
 
 The adapter implements published Grapevine v1.3 shapes. Replies contain `prompt`, `responseType=string` and `state=NextState|End`. Optional `requestId` enables reliable deduplication. Without a stable provider ID, repeated input cannot safely be distinguished from a legitimate next answer; account/entity side effects remain idempotent.
 
@@ -92,10 +94,10 @@ All transaction inputs are free text:
 | Services | Service offered and service cost |
 | E-Commerce, Retail, Agriculture | Goods sold summary and total sale value |
 
-Each flow also asks for payment details (paid/unpaid, cash/bank/M-Pesa/EcoCash, due date if unpaid) and optional buyer details (`-` becomes `N/A`). Paid sales can use N/A. Unpaid invoices require an identifiable buyer and due date; the service never invents a payment account. Currency is explicit Maloti in the price prompts. Navigation codes remain reserved: use text such as `M99`, `99.00` or `099 passengers` when necessary.
+Each flow also asks for payment details (paid/unpaid, cash/bank/M-Pesa/EcoCash, due date if unpaid) and optional buyer details (`7. Skip` becomes `N/A`). Paid sales can use N/A. Unpaid invoices require an identifiable buyer and due date; the service never invents a payment account. Currency is explicit Maloti in the price prompts. Only displayed controls are reserved; use `08` or `00` for literal eight or zero.
 
-Review/edit the captured text, then create an AI preview. USSD sends JSON with the owner JWT and a stable `Idempotency-Key` to `https://4tax.vercel.app/webhooks/twilio/whatsapp/`. It uses the authenticated USSD adapter, not a forged Twilio message. The API uses the existing bookkeeping AI, validation and posting functions. It returns a structured preview so fixed screen labels can be localized. **Only Confirm and post writes financial entries.** Cancel posts nothing. Unclear or incomplete instructions return for editing; AI outages and unknown responses retain the original operation for retry.
+The last answer automatically creates an AI preview. Review the interpreted result, choose Edit or Cancel, or use `9. Confirm and post` on its final page. Edit first confirms cancellation of the old proposal, retains the original text, and allocates a fresh operation only after cancellation is confirmed. A lost cancellation response retains the cancellation/edit intent for retry. USSD sends JSON with the owner JWT and a stable `Idempotency-Key` to `https://4tax.vercel.app/webhooks/twilio/whatsapp/`. It uses the authenticated USSD adapter, not a forged Twilio message. The API uses the existing bookkeeping AI, validation and posting functions. It returns a structured preview so fixed screen labels can be localized. **Only Confirm and post writes financial entries.** Cancel posts nothing. Unclear or incomplete instructions return for editing; AI outages and unknown responses retain the original operation for retry.
 
-Transaction drafts are retained in Redis for 15 minutes. Ending a call removes authenticated session context; after PIN login, Add transaction offers Resume. Ambiguous submissions cannot be discarded into a new operation. Stale callbacks cannot act as confirmation of a preview that was not shown in that session. Confirmations are independently idempotent in the external API. A posted receipt is retained until acknowledged (within the same 15-minute TTL), so losing the final success screen does not immediately start another sale.
+Transaction drafts are retained in Redis for 15 minutes. Ending a call removes authenticated session context; after PIN login, Add transaction offers Resume. Resume directly retries an unresolved action with its original key, or displays an already prepared preview; it never treats Resume as new posting confirmation. Ambiguous submissions cannot be discarded into a new operation. Stale callbacks cannot act as confirmation of a preview that was not shown in that session. Confirmations are independently idempotent in the external API. A posted receipt is retained until acknowledged (within the same 15-minute TTL), so losing the final success screen does not immediately start another sale.
 
 The emulator inspector shows owner-lookup, list-businesses and transaction-webhook entries. Transaction field values and proposal summaries are redacted in diagnostics. The API contract is local to this service at [transaction-api.yaml](contracts/transaction-api.yaml); the Django producer documents its adapter separately in [whatsapp/USSD.md](../whatsapp/USSD.md).

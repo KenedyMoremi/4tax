@@ -32,13 +32,17 @@ public class SessionCoordinator {
     }
     private Reply process(Callback callback, String mobile, String callerKey, String key) {
         String requestKey = callback.requestId() == null || callback.requestId().isBlank() ? null
-                : key + ":" + crypto.digest(callback.requestId());
+                : key + ":nav2:" + crypto.digest(callback.requestId());
         if (requestKey != null) {
             String cached = store.cached(requestKey);
             if (cached != null) return json.readValue(cached, Reply.class);
         }
         Session session = callback.event() == Event.START ? new Session(mobile) : store.session(key);
         if (session == null) return new Reply(messages.text("en", "error.sessionExpired"), true);
+        if (session.navigationVersion != 2) {
+            session.clearAuthentication(); store.deleteSession(key);
+            return new Reply(messages.text(session.language,"error.navigationUpdated"),true);
+        }
         session.storageKey = key;
         if (callback.event() == Event.ABORT) {
             session.clearAuthentication(); store.deleteSession(key);
@@ -48,15 +52,20 @@ public class SessionCoordinator {
             boolean transactionMoved = false;
             if (session.draft != null) {
                 Draft current = store.draft(callerKey);
-                if (current == null || !Objects.equals(current.operationId, session.draft.operationId)) engine.end(session, "error.sessionExpired");
+                if (current == null) { if (session.draft.meaningful()) engine.end(session,"error.sessionExpired"); }
+                else if (!Objects.equals(current.operationId, session.draft.operationId)) engine.end(session,"error.sessionExpired");
                 else session.draft = current;
             }
             if (session.transaction != null && session.node.startsWith("TX_")) {
                 TransactionDraft current = store.transaction(callerKey);
-                if (current == null || !Objects.equals(current.operationId, session.transaction.operationId)) engine.end(session, "error.sessionExpired");
+                if (current == null) { if(session.transaction.meaningful()) engine.end(session,"error.sessionExpired"); }
+                else if (!Objects.equals(current.operationId, session.transaction.operationId)) engine.end(session, "error.sessionExpired");
                 else {
                     session.transaction = current;
-                    if (current.frozen && !session.node.equals(current.node) && !session.node.equals("TX_RESUME")) {
+                    if (current.proposal!=null && current.proposal.status().equals("posted")) {
+                        session.transactionResult=current.proposal.reference(); session.transaction=null;
+                        session.node="TX_DONE"; session.page=0; transactionMoved=true;
+                    } else if (current.frozen && !session.node.equals(current.node) && !session.node.equals("TX_RESUME")) {
                         session.node = current.node; session.page = 0; session.error = "tx.changed"; transactionMoved = true;
                     }
                 }

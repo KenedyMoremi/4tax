@@ -24,19 +24,31 @@ public class JourneyEngine {
     }
 
     public void input(Session s, String input) {
-        if (input.equals("99")) { end(s, "goodbye"); return; }
+        if (input.equals("0") && Screen.canExit(s)) { end(s,"goodbye"); return; }
         if (!authorized(s)) return;
         if (s.draft != null && s.draft.sector != null && !RegistrationSchema.sectors().contains(s.draft.sector)
                 && !s.node.equals("RESUME")) { router.go(s, "RESUME"); s.error = "error.oldDraft"; return; }
         if (skipInactiveDescription(s)) return;
-        if (input.equals("0")) {
-            if (s.node.startsWith("TX_")) { transactions.back(s); return; }
-            if (s.draft != null && s.draft.mayHaveSubmitted) { router.go(s, "RETRY"); return; }
-            router.back(s); return;
-        }
-        int count = screens.pages(s).size();
-        if (count > 1 && (input.equals("88") || input.equals("87"))) {
-            s.page = Math.max(0, Math.min(count - 1, s.page + (input.equals("88") ? 1 : -1))); return;
+        var page = screens.current(s);
+        String command = page.commands().get(input);
+        if (command == null && (!page.input() || input.startsWith("@"))) { invalid(s); return; }
+        if (command != null) {
+            switch (command) {
+                case "@exit" -> { end(s, "goodbye"); return; }
+                case "@next" -> { s.page++; return; }
+                case "@previous" -> { s.page--; return; }
+                case "@businessNext" -> { transactions.nextBusinesses(s); return; }
+                case "@businessPrevious" -> { transactions.previousBusinesses(s); return; }
+                case "@back" -> {
+                    if (s.node.startsWith("TX_")) transactions.back(s); else router.back(s);
+                    return;
+                }
+                case "@correctTimes" -> {
+                    for(String field:List.of("opens_at","closes_at","overnight")) s.draft.answers.remove(field);
+                    router.go(s,"FIELD:opens_at"); save(s); return;
+                }
+                default -> input = command;
+            }
         }
         s.error = null; s.page = 0;
         if (s.node.startsWith("TX_")) { transactions.input(s, input); return; }
@@ -110,9 +122,9 @@ public class JourneyEngine {
     public void enforceAccess(Session s) {
         if (!s.node.equals("END") && authorized(s)) {
             skipInactiveDescription(s);
-            if (s.node.equals("COLLECTION:employees") && !s.draft.mayHaveSubmitted
-                    && s.draft.collections.getOrDefault("employees", List.of()).isEmpty()) {
-                router.go(s, "FIELD:employees.name"); save(s);
+            if (s.node.startsWith("COLLECTION:") && !s.draft.mayHaveSubmitted
+                    && s.draft.collections.getOrDefault(s.node.substring(11), List.of()).isEmpty()) {
+                router.go(s, router.fieldNode(s.draft,s.node.substring(11))); save(s);
             }
         }
     }
@@ -120,19 +132,20 @@ public class JourneyEngine {
         if (!s.node.startsWith("FIELD:") && !s.node.startsWith("COLLECTION:")
                 && !Set.of("REVIEW", "EDIT").contains(s.node)) return false;
         if (s.draft == null || s.draft.sector == null || !RegistrationSchema.sectors().contains(s.draft.sector)
-                || RegistrationSchema.requiresOtherDescription(s.draft) || s.draft.mayHaveSubmitted) return false;
-        boolean changed = s.draft.answers.containsKey("other_description")
+                || s.draft.mayHaveSubmitted) return false;
+        RegistrationSchema.derive(s.draft);
+        boolean changed = !RegistrationSchema.requiresOtherDescription(s.draft) && s.draft.answers.containsKey("other_description")
                 && !"".equals(s.draft.answers.get("other_description"));
         if (changed) s.draft.answers.put("other_description", "");
-        boolean skipped = s.node.equals("FIELD:other_description");
-        if (skipped) router.next(s, "other_description");
+        boolean skipped = s.node.startsWith("FIELD:") && !RegistrationSchema.applies(s.draft,s.node.substring(6));
+        if (skipped) router.next(s, s.node.substring(6));
         if (changed || skipped) save(s);
         return skipped;
     }
 
     private void begin(Session s) {
         Draft draft = store.draft(crypto.digest(s.mobile));
-        if (draft != null) { s.draft = draft; router.go(s, "RESUME"); return; }
+        if (draft != null && draft.meaningful()) { s.draft = draft; router.go(s, "RESUME"); return; }
         fresh(s);
     }
     private void fresh(Session s) {
@@ -141,7 +154,9 @@ public class JourneyEngine {
         s.editing = false; router.go(s, "SECTOR"); save(s);
     }
     private void resume(Session s, String input) {
-        if (input.equals("2")) { store.deleteDraft(crypto.digest(s.mobile)); fresh(s); return; }
+        if (input.equals("2") && !s.draft.mayHaveSubmitted && (!s.draft.authenticationStarted || s.token!=null)) {
+            store.deleteDraft(crypto.digest(s.mobile)); fresh(s); return;
+        }
         if (!input.equals("1")) { invalid(s); return; }
         if (s.draft.authenticationStarted && s.token == null) {
             s.resumeAfterLogin = true; router.go(s, "LOGIN_PIN");
@@ -150,6 +165,7 @@ public class JourneyEngine {
     private void continueDraft(Session s) {
         if (s.draft.ownerId != null && !s.draft.ownerId.equals(s.ownerId)) { end(s, "error.expired"); return; }
         if (s.draft.sector != null && !RegistrationSchema.sectors().contains(s.draft.sector)) { router.go(s, "RESUME"); s.error = "error.oldDraft"; return; }
+        if(s.draft.mayHaveSubmitted) { submit(s); return; }
         String next = s.draft.node;
         if (Set.of("RESUME", "RETRY", "AUTH_UNKNOWN", "SUBMIT").contains(next)) next = "REVIEW";
         router.go(s, next);
@@ -169,9 +185,9 @@ public class JourneyEngine {
         if (input.equals("1") && rows.size() < group.get("maximum").asInt()) {
             s.draft.answers.keySet().removeIf(k -> k.startsWith(name + "."));
             router.go(s, "FIELD:" + name + "." + group.get("fields").get(0).get("name").asText());
-        } else if (input.equals("2") && rows.size() >= group.get("minimum").asInt()) {
+        } else if (input.equals("2") && rows.size() >= RegistrationSchema.minimum(s.draft,name)) {
             s.draft.answers.put(name, Integer.toString(rows.size())); router.next(s, name);
-        } else if (input.equals("3")) {
+        } else if (input.equals("3") && !rows.isEmpty()) {
             rows.clear(); s.draft.answers.remove(name);
             s.draft.answers.keySet().removeIf(key -> key.startsWith(name + "."));
             router.go(s, "COLLECTION:" + name);
@@ -180,19 +196,26 @@ public class JourneyEngine {
     }
     private void field(Session s, String field, String input) {
         String value = input.strip().replaceAll("\\s+", " ");
-        if (field.equals("employees.name") && value.equals("-")) {
-            int count = s.draft.collections.getOrDefault("employees", List.of()).size();
-            if (count < RegistrationSchema.group(s.draft.sector, "employees").get("minimum").asInt()) { invalid(s); return; }
-            s.draft.answers.keySet().removeIf(key -> key.startsWith("employees."));
-            s.draft.answers.put("employees", Integer.toString(count));
-            router.next(s, "employees"); save(s); return;
+        if (field.contains(".") && value.equals("@skip") && RegistrationSchema.canSkip(s.draft,field)) {
+            String groupName=field.substring(0,field.indexOf('.'));
+            int count = s.draft.collections.getOrDefault(groupName, List.of()).size();
+            s.draft.answers.keySet().removeIf(key -> key.startsWith(groupName+"."));
+            s.draft.answers.put(groupName, Integer.toString(count));
+            router.next(s, groupName); save(s); return;
         }
         if (field.equals("other_description") && RegistrationSchema.requiresOtherDescription(s.draft)
                 && (value.isBlank() || value.equals("-"))) { s.error = "error.otherDescriptionRequired"; return; }
         try {
             if (value.chars().anyMatch(Character::isISOControl)) throw new IllegalArgumentException();
             value = RegistrationSchema.parse(s.draft.sector, field, value);
+            if (field.equals("farmland_count") && value.equals("0") && "farming".equals(s.draft.answers.get("activity")))
+                throw new IllegalArgumentException();
         } catch (IllegalArgumentException e) { invalid(s); return; }
+        if (Set.of("opens_at","closes_at").contains(field) && !value.equals(s.draft.answers.get(field))) s.draft.answers.remove("overnight");
+        if (field.equals("farmland_count") && !value.equals("0") && "0".equals(s.draft.answers.get(field))) {
+            s.draft.answers.remove("farmland_size"); s.draft.answers.remove("farmland_unit");
+        }
+        if (field.equals("farmland_unit") && value.isBlank()) { invalid(s); return; }
         s.draft.answers.put(field, value);
         if (field.contains(".")) {
             String groupName = field.substring(0, field.indexOf('.'));
@@ -221,6 +244,10 @@ public class JourneyEngine {
         // An ambiguous submission must keep its original payload until the API confirms its result.
         if (s.draft.mayHaveSubmitted) { submit(s); return; }
         for (String field : router.fields(s.draft)) {
+            if(RegistrationSchema.group(s.draft.sector,field)!=null
+                    && s.draft.collections.getOrDefault(field,List.of()).size()<RegistrationSchema.minimum(s.draft,field)) {
+                router.go(s,router.fieldNode(s.draft,field)); save(s); return;
+            }
             if (!s.draft.answers.containsKey(field) || (field.equals("other_description") && s.draft.answers.get(field).isBlank())) {
                 if (field.equals("other_description")) s.editing = true;
                 router.go(s, router.fieldNode(s.draft, field)); save(s); return;
@@ -324,10 +351,10 @@ public class JourneyEngine {
                 new Source("USSD", s.draft.language));
     }
     private void save(Session s) {
-        if (s.draft != null) {
+        if (s.draft != null && s.draft.meaningful()) {
             store.saveDraft(crypto.digest(s.mobile), s.draft);
         }
     }
-    private void invalid(Session s) { s.error = "error.invalid"; }
+    private void invalid(Session s) { s.error = "error.invalid"; s.page=0; }
     public void end(Session s, String key) { s.terminal = messages.text(s.language, key); s.node = "END"; s.clearAuthentication(); }
 }

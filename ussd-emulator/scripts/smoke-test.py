@@ -70,7 +70,7 @@ assert partial.send('ABORT')['state'] == 'End'
 resume = Call(partial.subscriber)
 resume.steps('1', '1')
 assert 'Unfinished' in resume.last['prompt']
-resume.steps('1')
+resume.steps('9')
 assert resume.send('TIMEOUT')['state'] == 'End'
 
 denied = Call(gateway_key='deliberately-wrong-key')

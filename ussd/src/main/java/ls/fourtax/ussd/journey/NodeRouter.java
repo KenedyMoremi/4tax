@@ -13,19 +13,34 @@ public class NodeRouter {
         return fields(draft.sector).stream().filter(field -> RegistrationSchema.applies(draft, field)).toList();
     }
     public String fieldNode(Draft draft, String field) {
-        if (field.equals("employees") && draft.collections.getOrDefault("employees", List.of()).isEmpty())
-            return "FIELD:employees.name";
+        var group = RegistrationSchema.group(draft.sector, field);
+        if (group != null && draft.collections.getOrDefault(field, List.of()).isEmpty())
+            return "FIELD:" + field + "." + group.get("fields").get(0).get("name").asText();
         return RegistrationSchema.group(draft.sector, field) == null ? "FIELD:" + field : "COLLECTION:" + field;
     }
     public void go(Session session, String node) {
-        if (node.equals("COLLECTION:employees") && session.draft != null) node = fieldNode(session.draft, "employees");
+        if (node.startsWith("COLLECTION:") && session.draft != null) node = fieldNode(session.draft, node.substring(11));
         if (!session.node.equals(node)) session.history.add(session.node);
         session.node = node; session.page = 0; session.error = null;
-        if (session.draft != null && ((node.startsWith("FIELD:") || node.startsWith("COLLECTION:")) || Set.of("SECTOR", "CONTACT", "DAYS", "OPTIONAL_NAME", "REVIEW", "EDIT").contains(node)))
+        if (session.draft != null && ((node.startsWith("FIELD:") || node.startsWith("COLLECTION:")) || Set.of("SECTOR", "REVIEW", "EDIT").contains(node)))
             session.draft.node = node;
     }
     public void next(Session session, String field) {
+        RegistrationSchema.derive(session.draft);
         if (session.editing) {
+            if ("farming".equals(session.draft.answers.get("activity")) && "0".equals(session.draft.answers.get("farmland_count"))) {
+                go(session,"FIELD:farmland_count"); return;
+            }
+            for (String name : fields(session.draft.sector)) {
+                if (RegistrationSchema.group(session.draft.sector,name)!=null
+                        && session.draft.collections.getOrDefault(name,List.of()).size()<RegistrationSchema.minimum(session.draft,name)) {
+                    go(session,fieldNode(session.draft,name)); return;
+                }
+            }
+            for (String dependent : List.of("overnight", "farmland_size", "farmland_unit")) {
+                if (fields(session.draft.sector).contains(dependent) && RegistrationSchema.applies(session.draft, dependent)
+                        && !session.draft.answers.containsKey(dependent)) { go(session, "FIELD:" + dependent); return; }
+            }
             if (!field.equals("other_description") && RegistrationSchema.requiresOtherDescription(session.draft)
                     && session.draft.answers.getOrDefault("other_description", "").isBlank()) {
                 go(session, "FIELD:other_description"); return;
@@ -39,13 +54,14 @@ public class NodeRouter {
     }
     public void back(Session session) {
         session.clearPin(); session.error = null; session.page = 0;
+        if (session.node.equals("PIN_CONFIRM")) { session.node = "PIN_NEW"; return; }
         if (session.editing) { session.editing = false; session.node = "EDIT"; return; }
         while (!session.history.isEmpty()) {
             String previous = session.history.removeLast();
             if (previous.startsWith("TX_")) continue; // Transaction navigation has its own stage and confirmation guards.
             if (session.registered && (previous.equals("MAIN") || previous.equals("ENTRY_RETRY"))) continue;
-            if (previous.equals("COLLECTION:employees") && session.draft != null
-                    && session.draft.collections.getOrDefault("employees", List.of()).isEmpty()) continue;
+            if (previous.startsWith("COLLECTION:") && session.draft != null
+                    && session.draft.collections.getOrDefault(previous.substring(11), List.of()).isEmpty()) continue;
             if (previous.startsWith("FIELD:") && session.draft != null
                     && !RegistrationSchema.applies(session.draft, previous.substring(6))) continue;
             if (!previous.startsWith("PIN_") && !previous.equals("LOGIN_PIN") && !previous.equals("END")) {

@@ -99,7 +99,7 @@ class HttpBackendTest {
         List<Object> samples = new ArrayList<>();
         for (String language : List.of("1", "2")) for (int sector = 1; sector <= 5; sector++) {
             var fake = new FakeBackend(); var d = new Driver(new MemoryStore(), fake);
-            d.start(); d.steps(language, "1", String.valueOf(sector)); d.fillToReview(); d.steps("1", "001234", "001234");
+            d.start(); d.steps(language, "1", String.valueOf(sector)); d.fillToReview(); d.advance(); d.steps("001234", "001234");
             var payload = fake.saved.values().iterator().next(); String operation = UUID.randomUUID().toString();
             try (var capture = trace.begin()) {
                 var account = backend.createOwner("+26658123456", "001234", operation);
@@ -150,7 +150,7 @@ class HttpBackendTest {
         var failure = assertThrows(Backend.Failure.class, () -> backend.login("+26658123456", "001234"));
         assertEquals("INVALID_CREDENTIALS", failure.code);
         var fake = new FakeBackend(); var d = new Driver(new MemoryStore(), fake);
-        d.transportToReview("1"); d.steps("1", "001234", "001234"); businessStatus = 422;
+        d.transportToReview("1"); d.advance(); d.steps("001234", "001234"); businessStatus = 422;
         try (var capture = trace.begin()) {
             assertEquals("VALIDATION_ERROR", assertThrows(Backend.Failure.class,
                     () -> backend.register(ownerToken, fake.saved.values().iterator().next(), "operation")).code);

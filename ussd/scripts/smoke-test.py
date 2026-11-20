@@ -25,7 +25,7 @@ assert schema['salaryPeriod'] == schema['turnoverPeriod'] == 'monthly'
 for language in ('1', '2'):
     for sector in ('1', '2', '3', '4', '5'):
         session, mobile = str(uuid.uuid4()), '26658' + ''.join(str(secrets.randbelow(10)) for _ in range(6))
-        for event, value in [('initial', ''), ('action', language), ('action', '1'), ('action', sector), ('abort', '')]:
+        for event, value in [('initial', ''), ('action', language), ('action', '1'), ('action', sector), ('action', '0')]:
             root = ET.Element('ussdAppRequest')
             for name, text in {'type': event, 'sessionId': session, 'msisdn': mobile, 'network': 'VOD',
                                'requestId': str(uuid.uuid4())}.items():
@@ -40,7 +40,8 @@ for language in ('1', '2'):
             with urllib.request.urlopen(request, timeout=30) as response:
                 reply = ET.fromstring(response.read())
             assert len(reply.findtext('prompt')) <= 160
-            assert reply.findtext('state') == ('End' if event == 'abort' else 'NextState')
+            assert reply.findtext('state') == ('End' if event == 'abort' or value == '0' else 'NextState')
+            assert not __import__('re').search(r'(?m)^(?:99|88|87)\. ', reply.findtext('prompt'))
 
 request = urllib.request.Request(base + '/ussd/callback/grapevine', data=b'<invalid/>', headers={'Content-Type': 'application/xml'})
 try:

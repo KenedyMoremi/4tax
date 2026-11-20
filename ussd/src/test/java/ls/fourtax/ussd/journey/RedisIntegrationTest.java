@@ -27,7 +27,7 @@ class RedisIntegrationTest {
     }
     @AfterEach void close() { connection.destroy(); }
     @Test void fullJourneyUsesRedisWithoutPersistingRawPinAndDraftHasTtl() {
-        d.transportToReview("1"); d.steps("1", "087431");
+        d.transportToReview("1"); d.advance(); d.input("087431");
         for (String key : redis.keys("*")) {
             if (!key.startsWith("lock:")) assertFalse(Objects.requireNonNull(redis.opsForValue().get(key)).contains("087431"));
         }
@@ -63,15 +63,15 @@ class RedisIntegrationTest {
     @Test void transactionRecoveryRetainsOperationButNeverPinOrJwtInTheDraft() {
         d.backend.pins.put(d.mobile,"001234");
         d.backend.ownedBusinesses.add(new ls.fourtax.ussd.api.Contracts.BusinessSummary("business-1","4TAX-TEST","retail","Test shop"));
-        d.start(); d.steps("1","001234","2","Synthetic goods","M100 total","paid in cash","-","1");
+        d.start(); d.steps("1","001234","2","Synthetic goods","M100 total","paid in cash","7");
         assertEquals("TX_PREVIEW",d.state().node);
         String key="transaction:"+d.crypto.digest(d.mobile);
         String draft=redis.opsForValue().get(key); assertNotNull(draft); assertFalse(draft.contains("001234")); assertFalse(draft.contains("owner-token"));
         assertTrue(redis.getExpire(key)>880);
-        d.backend.loseTransactionReply=true; d.input("1"); assertEquals("TX_RETRY",d.state().node);
-        d.input("99"); d.start(); d.steps("2","001234","2","1","1");
+        d.backend.loseTransactionReply=true; d.advance(); assertEquals("TX_RETRY",d.state().node);
+        d.input("0"); d.start(); d.steps("2","001234","2","9");
         assertEquals("TX_DONE",d.state().node); assertEquals(1,d.backend.postedTransactions.size()); assertTrue(redis.opsForValue().get(key).contains("posted"));
-        d.input("2"); assertNull(redis.opsForValue().get(key));
+        d.input("8"); assertNull(redis.opsForValue().get(key));
     }
 
 }

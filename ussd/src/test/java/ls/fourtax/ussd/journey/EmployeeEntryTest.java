@@ -32,9 +32,9 @@ class EmployeeEntryTest {
             d.input("5"); assertEquals("COLLECTION:employees", d.state().node);
             assertEquals(1, d.state().draft.collections.get("employees").size());
             d.input("1"); assertEquals("FIELD:employees.name", d.state().node);
-            d.steps("Second Employee", "1", "2"); assertEquals("REVIEW", d.state().node);
+            d.steps("Second Employee", "1", "9"); assertEquals("REVIEW", d.state().node);
             assertEquals(0, d.backend.creations); assertTrue(d.backend.attempts.isEmpty());
-            d.steps("1", "012345", "012345"); assertTrue(d.last.end());
+            d.advance(); d.steps("012345", "012345"); assertTrue(d.last.end());
             var employees = d.backend.saved.values().iterator().next().employees();
             assertEquals(2, employees.size());
             assertEquals(Map.of("name", "First Employee", "salary_range", "20000_plus"), employees.getFirst());
@@ -43,41 +43,39 @@ class EmployeeEntryTest {
     }
     @Test void aBusinessWithoutEmployeesCanContinueFromTheNamePrompt() {
         for (String sector : List.of("1", "2", "3", "4", "5")) {
-            var d = employeeEntry("1", sector); d.input("-"); assertEquals("REVIEW", d.state().node);
-            d.steps("1", "012345", "012345"); assertTrue(d.last.end());
+            var d = employeeEntry("1", sector); d.input("7"); assertEquals("REVIEW", d.state().node);
+            d.advance(); d.steps("012345", "012345"); assertTrue(d.last.end());
             assertTrue(d.backend.saved.values().iterator().next().employees().isEmpty());
         }
     }
     @Test void addingAnotherEmployeeCanBeCancelledWithoutDiscardingSavedEmployees() {
-        var d = employeeEntry("1", "4"); d.steps("First Employee", "2", "1", "-");
+        var d = employeeEntry("1", "4"); d.steps("First Employee", "2", "1", "7");
         assertEquals("REVIEW", d.state().node); assertEquals(1, d.state().draft.collections.get("employees").size());
         assertEquals("First Employee", d.state().draft.collections.get("employees").getFirst().get("name"));
     }
     @Test void backFromSalaryAllowsRenamingWithoutCreatingADuplicate() {
-        var d = employeeEntry("1", "4"); d.steps("Original Name", "0");
+        var d = employeeEntry("1", "4"); d.steps("Original Name", "8");
         assertEquals("FIELD:employees.name", d.state().node);
-        d.steps("Corrected Name", "3", "2"); assertEquals("REVIEW", d.state().node);
+        d.steps("Corrected Name", "3", "9"); assertEquals("REVIEW", d.state().node);
         assertEquals(1, d.state().draft.collections.get("employees").size());
         assertEquals("Corrected Name", d.state().draft.collections.get("employees").getFirst().get("name"));
     }
     @Test void editingAndClearingEmployeesReturnsDirectlyToNameCapture() {
-        var d = employeeEntry("1", "4"); d.steps("First Employee", "1", "2", "2");
-        int employees = new NodeRouter().fields(d.state().draft).indexOf("employees") + 1;
-        d.input(Integer.toString(employees)); assertEquals("COLLECTION:employees", d.state().node);
-        d.input("3"); assertEquals("FIELD:employees.name", d.state().node);
-        d.steps("Replacement Employee", "4", "2"); assertEquals("REVIEW", d.state().node);
+        var d = employeeEntry("1", "4"); d.steps("First Employee", "1", "9"); d.editField("employees"); assertEquals("COLLECTION:employees", d.state().node);
+        d.input("2"); assertEquals("FIELD:employees.name", d.state().node);
+        d.steps("Replacement Employee", "4", "9"); assertEquals("REVIEW", d.state().node);
         assertEquals(1, d.state().draft.collections.get("employees").size());
         assertEquals("Replacement Employee", d.state().draft.collections.get("employees").getFirst().get("name"));
     }
     @Test void employeeNameAndSalaryStepSurviveSessionRecovery() {
-        var d = employeeEntry("1", "4"); d.steps("Saved Employee", "99");
-        d.start(); d.steps("1", "1", "1"); assertEquals("FIELD:employees.salary_range", d.state().node);
-        d.steps("2", "2"); assertEquals("REVIEW", d.state().node);
+        var d = employeeEntry("1", "4"); d.steps("Saved Employee", "0");
+        d.start(); d.steps("1", "1", "9"); assertEquals("FIELD:employees.salary_range", d.state().node);
+        d.steps("2", "9"); assertEquals("REVIEW", d.state().node);
         assertEquals("Saved Employee", d.state().draft.collections.get("employees").getFirst().get("name"));
     }
     @Test void anOldEmptyEmployeeMenuResumesAtTheNamePrompt() {
         var d = employeeEntry("1", "4"); var session = d.state();
         session.node = "COLLECTION:employees"; session.draft.node = session.node; saveSession(d, session);
-        d.start(); d.steps("1", "1", "1"); assertEquals("FIELD:employees.name", d.state().node);
+        d.start(); d.steps("1", "1", "9"); assertEquals("FIELD:employees.name", d.state().node);
     }
 }

@@ -13,7 +13,7 @@ class JourneyTest {
     @BeforeEach void setup() { store = new MemoryStore(); backend = new FakeBackend(); d = new Driver(store, backend); }
 
     @Test void transportPreservesIdsAndConsecutiveMatchingPinsAreNotDeduplicated() {
-        d.transportToReview("1"); d.steps("1", "087431");
+        d.transportToReview("1"); d.advance(); d.input("087431");
         assertFalse(store.serialized().contains("087431"));
         assertEquals("PIN_CONFIRM", d.state().node);
         d.input("087431");
@@ -26,7 +26,7 @@ class JourneyTest {
     @Test void allFiveSectorsUseTheSharedContract() {
         for (String language : List.of("1", "2")) for (int sector=1; sector<=5; sector++) {
             setup(); d.start(); d.steps(language, "1", Integer.toString(sector)); d.fillToReview();
-            d.steps("1", "012345", "012345");
+            d.advance(); d.steps("012345", "012345");
             assertTrue(d.last.end());
             var registration = backend.saved.values().iterator().next();
             assertEquals(RegistrationSchema.sectors().get(sector-1), registration.sector());
@@ -43,9 +43,9 @@ class JourneyTest {
     @Test void employeeNameThenSalaryMenuRepeatsAndCanContinue() {
         d.start(); d.steps("1", "1", "4");
         d.fillUntil("FIELD:employees.name");
-        d.steps("First Employee", "5", "1", "Second Employee", "1", "2");
+        d.steps("First Employee", "5", "1", "Second Employee", "1", "9");
         assertEquals("REVIEW", d.state().node);
-        d.steps("1", "012345", "654321");
+        d.advance(); d.steps("012345", "654321");
         assertEquals("PIN_NEW", d.state().node);
         d.steps("012345", "012345");
         var staff = backend.saved.values().iterator().next().employees();
@@ -57,28 +57,28 @@ class JourneyTest {
         d.start(); d.steps("2", "1", "2", "1", "Mpho Example", "000123", "1", "25:00");
         // Hours precede common location fields in the shared form metadata.
         assertEquals("FIELD:opens_at", d.state().node);
-        d.fillToReview(); d.steps("1", "012345", "012345");
+        d.fillToReview(); d.advance(); d.steps("012345", "012345");
         assertTrue(d.last.end()); assertEquals("st", backend.saved.values().iterator().next().source().language());
     }
     @Test void loginAllowsAnotherBusinessWithoutPinCreation() {
-        d.transportToReview("1"); d.steps("1", "012345", "012345");
-        d.start(); d.steps("1", "012345", "1"); d.vendorFields(); d.input("1");
+        d.transportToReview("1"); d.advance(); d.steps("012345", "012345");
+        d.start(); d.steps("1", "012345", "1"); d.vendorFields(); d.advance();
         assertTrue(d.last.end()); assertEquals(1, backend.creations); assertEquals(2, backend.saved.size());
     }
     @Test void lostRegistrationResponseRequiresLoginAndReusesIdenticalOperationAfterResume() {
         backend.loseRegistrationReply = true;
-        d.transportToReview("1"); d.steps("1", "012345", "012345");
+        d.transportToReview("1"); d.advance(); d.steps("012345", "012345");
         assertEquals("RETRY", d.state().node); assertEquals(1, backend.saved.size());
         d.input("2"); assertEquals("RETRY", d.state().node); // Ambiguous submissions cannot be edited into duplicates.
-        d.input("99"); assertNull(d.state());
+        d.input("0"); assertNull(d.state());
         d.start(); d.steps("2"); assertEquals("LOGIN_PIN", d.state().node);
-        d.steps("012345", "1", "1", "1");
+        d.steps("012345", "1", "9");
         assertTrue(d.last.end()); assertEquals(1, backend.creations); assertEquals(1, backend.saved.size());
         assertEquals(backend.attempts.getFirst(), backend.attempts.getLast());
     }
     @Test void unfinishedDraftResumesAndExpiredDraftCannotBeResurrected() {
-        d.start(); d.steps("1", "1", "1", "1", "Mpho Example", "99");
-        d.start(); d.steps("1", "1", "1"); assertEquals("FIELD:idNumber", d.state().node);
+        d.start(); d.steps("1", "1", "1", "1", "Mpho Example", "0");
+        d.start(); d.steps("1", "1", "9"); assertEquals("FIELD:idNumber", d.state().node);
         store.advance(901); d.input("000123"); assertTrue(d.last.end()); assertTrue(d.last.message().contains("expired"));
         d.start(); d.steps("1", "1"); assertEquals("SECTOR", d.state().node);
     }
@@ -92,35 +92,34 @@ class JourneyTest {
     @Test void reviewPaginationAndEditingRetainRequiredInformation() {
         d.transportToReview("1");
         assertTrue(d.last.message().contains("(1/"));
-        d.input("88"); assertTrue(d.state().page > 0);
-        int location = new NodeRouter().fields("transport").indexOf("location") + 1;
-        d.steps("2", Integer.toString(location), "Ha Abia");
+        d.input("9"); assertTrue(d.state().page > 0);
+        d.editField("location"); d.input("Ha Abia");
         assertEquals("REVIEW", d.state().node); assertEquals("Ha Abia", d.state().draft.answers.get("location"));
-        d.steps("1", "012345", "012345"); assertTrue(d.last.end());
+        d.advance(); d.steps("012345", "012345"); assertTrue(d.last.end());
     }
     @Test void translationsContainExactlyTheSameKeysAndPreserveApostrophes() {
         var english = ResourceBundle.getBundle("messages", Locale.ENGLISH);
         var sesotho = ResourceBundle.getBundle("messages", Locale.forLanguageTag("st"));
         assertEquals(english.keySet(), sesotho.keySet());
-        assertTrue(new Messages().text("en", "prompt.fullNames").contains("owner's"));
+        assertTrue(new Messages().text("en", "registration.employeeNamePrompt").contains("employee"));
     }
     @Test void backCannotDisplayProtectedDraftAfterAuthenticationExpires() {
         backend.failure = "VALIDATION_ERROR";
-        d.transportToReview("1"); d.steps("1", "012345", "012345");
+        d.transportToReview("1"); d.advance(); d.steps("012345", "012345");
         var session = d.state(); session.tokenExpiry = 0;
         store.saveSession(d.crypto.digest("test:TEST:" + d.sessionId + ":" + d.mobile), session);
         d.input("1"); assertEquals("LOGIN_PIN", d.state().node);
-        d.input("0"); assertEquals("LOGIN_PIN", d.state().node);
+        d.input("8"); assertEquals("LOGIN_PIN", d.state().node);
         assertFalse(d.last.message().contains("Mpho Example"));
     }
     @Test void discardDraftStartsWithNoPreviousAnswers() {
-        d.transportToReview("1"); d.input("99");
+        d.transportToReview("1"); d.input("0");
         d.start(); d.steps("1", "1", "2");
         assertEquals("SECTOR", d.state().node); assertTrue(d.state().draft.answers.isEmpty());
     }
     @Test void laterPageErrorsRemainVisibleAndReviewUsesTranslatedLabels() {
         d.transportToReview("2");
-        d.input("88"); assertTrue(d.state().page > 0);
+        d.input("9"); assertTrue(d.state().page > 0);
         d.input("invalid"); assertEquals("REVIEW", d.state().node); assertEquals(0, d.state().page);
         assertTrue(d.last.message().contains("ha lia nepahala"));
         var screens = new Screen(new Messages(), new NodeRouter(), settings());
@@ -131,12 +130,12 @@ class JourneyTest {
 
     @Test void oversizePayloadRejectionAllowsEditingWithoutRecreatingTheOwner() {
         backend.failure = "PAYLOAD_TOO_LARGE";
-        d.transportToReview("1"); d.steps("1", "012345", "012345");
+        d.transportToReview("1"); d.advance(); d.steps("012345", "012345");
         assertEquals("RETRY", d.state().node); assertFalse(d.state().draft.mayHaveSubmitted);
         assertTrue(d.last.message().contains("Too many details"));
-        d.input("2"); assertEquals("EDIT", d.state().node);
-        int location = new NodeRouter().fields("transport").indexOf("location") + 1;
-        d.steps(Integer.toString(location), "Maseru"); backend.failure = null; d.input("1");
+        d.lastPage(); d.input("1"); assertEquals("EDIT", d.state().node);
+        d.choose(Integer.toString(new NodeRouter().fields(d.state().draft).indexOf("location")+1));
+        d.input("Maseru"); backend.failure = null; d.advance();
         assertTrue(d.last.end()); assertEquals(1, backend.creations);
     }
 
